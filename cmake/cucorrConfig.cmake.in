@@ -1,0 +1,40 @@
+@PACKAGE_INIT@
+
+set_and_check(CUCORR_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
+set_and_check(CUCORR_LIBRARY_DIR "@PACKAGE_LIBRARY_INSTALL_DIR@")
+set_and_check(CUCORR_BINARY_DIR "@PACKAGE_BINARY_INSTALL_DIR@")
+set_and_check(CUCORR_CMAKE_DIR "@PACKAGE_CMAKE_INSTALL_DIR@")
+
+macro (check_components comps_list)
+  set(cucorr_FOUND true)
+
+  foreach(component ${comps_list})
+    if(NOT TARGET cucorr::${component} AND NOT TARGET cucorr::${component}Static)
+      set(cucorr_${component}_FOUND false)
+      if(cucorr_FIND_REQUIRED_${component})
+        message(WARNING "Could not find component ${component}")
+        set(cucorr_FOUND false)
+      endif()
+    else()
+      set(cucorr_${component}_FOUND true)
+    endif()
+  endforeach()
+endmacro()
+
+if (cucorr_FIND_COMPONENTS)
+  foreach(component ${cucorr_FIND_COMPONENTS})
+    if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/cucorr{component}Targets.cmake)
+      include(${CMAKE_CURRENT_LIST_DIR}/cucorr{component}Targets.cmake)
+    endif()
+  endforeach()
+  check_components("${cucorr_FIND_COMPONENTS}")
+else()
+  file(GLOB
+    target-file
+    LIST_DIRECTORIES false
+    "${CMAKE_CURRENT_LIST_DIR}/cucorr*Targets.cmake"
+  )
+  foreach(component ${target-file})
+    include(${component})
+  endforeach()
+endif()

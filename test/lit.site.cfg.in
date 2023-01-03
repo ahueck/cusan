@@ -1,0 +1,22 @@
+@LIT_SITE_CFG_IN_HEADER@
+
+import sys
+
+# LLVM toolchain:
+config.clang_cpp = "@CUCORR_CLANGCXX_EXEC@"
+config.clang = "@CUCORR_CLANG_EXEC@"
+config.opt = "@CUCORR_OPT_EXEC@"
+config.opt_args = "@CUCORR_OPT_ARGS@"
+config.llc = "@CUCORR_LLC_EXEC@"
+config.filecheck = "@CUCORR_FILECHECK_EXEC@"
+
+# Project related:
+config.cucorr_lib_dir = "@CUCORR_LIBRARY_DIR@"
+config.cucorr_pass_dir = "@CUCORR_PASS_DIR@"
+config.cucorr_runtime_dir = "@CUCORR_RUNTIME_DIR@"
+config.cucorr_script_dir = "@CUCORR_SCRIPT_DIR@"
+config.cucorr_pass = "$<TARGET_FILE_NAME:cucorr::TransformPass>"
+
+# Let the main config do the real work.
+config.loaded_site_config = True
+lit_config.load_config(config, "@CUCORR_PROJECT_DIR@/test/lit.cfg")

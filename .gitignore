@@ -1,0 +1,49 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Build folder
+build*/
+
+# Compilation Database and others
+compile_commands.json
+CMakeLists.txt.user
+
+# Misc folder
+.settings/
+
+# CLion
+.idea/
+
+# llvm-lit related
+test/**/Output/
+test/*/*.ll
+test/*/*.s
+test/*/*.o
+test/**/*.log
+test/**/*.yaml
+test/**/*.profraw
