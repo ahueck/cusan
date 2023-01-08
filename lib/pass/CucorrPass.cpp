@@ -6,6 +6,8 @@
 
 #include "CucorrPass.h"
 
+#include "analysis/KernelMemory.h"
+
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -65,7 +67,10 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
     return false;
   }
 
-  // TODO: implement here
+  auto data = analyze(&function);
+  if (data.hasValue()) {
+    llvm::outs() << data.getValue();
+  }
 
   return false;
 }
