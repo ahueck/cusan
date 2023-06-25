@@ -18,6 +18,23 @@ llvm::Optional<KernelModel> analyze(llvm::Function* f) {
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const KernelModel& model) {
   os << "Kernel: " << util::try_demangle(*model.kernel) << "\n";
+  const auto& vec = model.args;
+  if (vec.empty()) {
+    os << "args = []";
+    return os;
+  }
+  const auto* begin = std::begin(vec);
+  os << "args = " << begin;
+  std::for_each(std::next(begin), std::end(vec), [&](const auto& value) {
+    os << ", ";
+    os << value;
+  });
+//  os << "]";
+  return os;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
+  os << "[" << arg.arg << ", ptr: " << arg.is_pointer << ", rw: " << arg.is_written << "]";
   return os;
 }
 
