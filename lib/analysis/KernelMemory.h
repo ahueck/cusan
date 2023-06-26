@@ -29,6 +29,7 @@ struct KernelModel {
 llvm::Optional<KernelModel> analyze(llvm::Function*);
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream&, const KernelModel&);
+llvm::raw_ostream& operator<<(llvm::raw_ostream&, const FunctionArg&);
 
 }  // namespace cucorr
 

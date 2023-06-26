@@ -69,7 +69,7 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
 
   auto data = analyze(&function);
   if (data.hasValue() && !cl_cucorr_quiet.getValue()) {
-    llvm::errs() << data.getValue();
+    llvm::errs() << data.getValue() << "\n";
   }
 
   return false;

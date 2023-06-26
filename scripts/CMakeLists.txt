@@ -203,7 +203,7 @@ configure_cucorr_script(
   COMPILER ${TYPEART_CLANGCXX_EXEC}
 )
 
-configure_cucorr_script(cucorr-tmpl.sh.in run.sh)
+#configure_cucorr_script(cucorr-tmpl.sh.in run.sh)
 configure_cucorr_script(
   cucorr-tmpl.sh.in apply.sh
   APPLY_MODE ON

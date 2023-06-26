@@ -34,7 +34,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const KernelModel& model) {
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
-  os << "[" << arg.arg << ", ptr: " << arg.is_pointer << ", rw: " << arg.is_written << "]";
+  os << "[" << arg.arg << ", ptr: " << static_cast<int>(arg.is_pointer) << ", rw: " << static_cast<int>(arg.is_written) << "]";
   return os;
 }
 
