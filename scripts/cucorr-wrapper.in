@@ -74,7 +74,11 @@ function cucorr_global_init_fn() {
   readonly cucorr_includes="${cucorr_include_dir}"
   readonly cucorr_plugin="-load "${cucorr_pass}" -cucorr"
   readonly cucorr_cpu_mode=""
-  readonly cucorr_gpu_mode=""
+  if [ ${typeart_wrapper_emit_ir} == 1 ]; then
+    readonly cucorr_gpu_mode=""
+  else
+    readonly cucorr_gpu_mode="--cucorr-quiet"
+  fi
 }
 
 function typeart_global_init_fn() {
@@ -516,7 +520,6 @@ function typeart_compile_cuda_device_fn() {
 }
 
 function typeart_compile_host_fn() {
-  set -x
   # shellcheck disable=SC2086
   typeart_compiler_fn "${out_basename}"_base.ll ${typeart_wrapper_more_args} ${typeart_includes} ${typeart_san_flags} \
     ${typeart_to_llvm_flags} ${typeart_to_llvm_more_flags} "${typeart_source_file}" -o - |
