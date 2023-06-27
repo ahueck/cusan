@@ -1,10 +1,12 @@
 set(PASS_SOURCES
   CucorrPass.cpp
+  ../analysis/KernelMemory.cpp
+  ../analysis/KernelMemory.h
 )
 
 cucorr_llvm_module(cucorr_TransformPass
   "${PASS_SOURCES}"
-  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/lib/type
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/lib
 )
 mark_as_advanced(LLVM_CUCORR_TRANSFORMPASS_LINK_INTO_TOOLS)
 

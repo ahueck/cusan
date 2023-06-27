@@ -17,6 +17,7 @@ config.cucorr_runtime_dir = "@CUCORR_RUNTIME_DIR@"
 config.cucorr_script_dir = "@CUCORR_SCRIPT_DIR@"
 config.cucorr_pass = "$<TARGET_FILE_NAME:cucorr::TransformPass>"
 
+
 # Let the main config do the real work.
 config.loaded_site_config = True
 lit_config.load_config(config, "@CUCORR_PROJECT_DIR@/test/lit.cfg")

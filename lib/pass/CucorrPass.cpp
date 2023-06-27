@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "CucorrPass.h"
+#include "CommandLine.h"
+#include "analysis/KernelMemory.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DataLayout.h"
@@ -65,7 +67,10 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
     return false;
   }
 
-  // TODO: implement here
+  auto data = analyze(&function);
+  if (data.hasValue() && !cl_cucorr_quiet.getValue()) {
+    llvm::errs() << data.getValue() << "\n";
+  }
 
   return false;
 }
