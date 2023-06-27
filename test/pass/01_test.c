@@ -2,7 +2,8 @@
 
 // TYPEART_WRAPPER_EMIT_IR=1 %wrapper-cc -O1 -g %s -x cuda -gencode arch=compute_50,code=sm_50 -o %s.exe
 
-// CHECK: Malloc :   2
+// CHECK: TypeArtPass [Heap]
+// CHECK-NEXT: Malloc :   2
 
 #include <stdio.h>
 __global__ void axpy(float a, float* x, float* y) {
