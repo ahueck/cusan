@@ -155,15 +155,16 @@ if(MPI_FOUND)
   set_typeart_mpi_compiler()
 endif()
 
+find_package(MPI)
 if(MPI_C_FOUND)
   configure_cucorr_script(
-    typeart-wrapper.in typeart-mpicc${CMAKE_DEBUG_POSTFIX}
+    cucorr-wrapper.in cucorr-mpicc${CMAKE_DEBUG_POSTFIX}
     INSTALL_MODE ON
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICC}"
   )
   configure_cucorr_script(
-    typeart-wrapper.in typeart-mpicc-test
+    cucorr-wrapper.in cucorr-mpicc-test
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICC}"
   )
