@@ -16,13 +16,22 @@
 namespace cucorr {
 
 struct FunctionArg {
-  llvm::Argument* arg{nullptr};
+  enum State {
+    kWritten = 1,
+    kRead = 1 << 1,
+    kNone = 1 << 2,
+    kRW = kRead | kWritten
+  };
+  llvm::Optional<const llvm::Argument*> arg{nullptr};
+  unsigned arg_pos{0};
   bool is_pointer{false};
-  bool is_written{false};
+  State state{kRW};
 };
 
 struct KernelModel {
-  llvm::Function* kernel{nullptr};
+  llvm::Optional<const llvm::Function*> kernel{nullptr};
+  std::string kernel_name{};
+  unsigned kernel_id{0};
   llvm::SmallVector<FunctionArg, 4> args{};
 };
 

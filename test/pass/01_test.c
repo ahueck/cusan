@@ -6,8 +6,12 @@
 // CHECK-NEXT: Malloc :   2
 
 #include <stdio.h>
+__device__ void axpy_write(float a, float* y) {
+  y[threadIdx.x] = a;
+}
+
 __global__ void axpy(float a, float* x, float* y) {
-  y[threadIdx.x] = a * x[threadIdx.x];
+  axpy_write(a * x[threadIdx.x], y);
 }
 
 int main(int argc, char* argv[]) {

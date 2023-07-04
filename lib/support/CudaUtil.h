@@ -10,6 +10,11 @@
 
 namespace cucorr::cuda {
 
+//bool AA::isGPU(const Module &M) {
+//  Triple T(M.getTargetTriple());
+//  return T.isAMDGPU() || T.isNVPTX();
+//}
+
 bool is_kernel(const llvm::Function* function) {
   const auto* module   = function->getParent();
   const auto* named_md = module->getNamedMetadata("nvvm.annotations");

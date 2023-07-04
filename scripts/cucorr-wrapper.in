@@ -506,6 +506,7 @@ function typeart_tu_out_fn() {
 function typeart_compile_cuda_device_fn() {
   $typeart_compiler ${typeart_wrapper_more_args} ${typeart_includes} ${typeart_to_llvm_flags} \
     -fPIC -x cuda "${typeart_source_file}" --cuda-device-only --cuda-gpu-arch=${typeart_cuda_code_arch} -o - |
+    typeart_opt_fn -mem2reg |
     typeart_opt_fn "${out_basename}"_cucorr_gpu.ll ${cucorr_plugin} ${cucorr_gpu_mode} |
     $typeart_llc_tool -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
     -o "${out_basename}".ptx
