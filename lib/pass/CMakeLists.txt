@@ -2,6 +2,7 @@ set(PASS_SOURCES
   CucorrPass.cpp
   ../analysis/KernelMemory.cpp
   ../analysis/KernelMemory.h
+  ../analysis/KernelDataManager.cpp
 )
 
 cucorr_llvm_module(cucorr_TransformPass
