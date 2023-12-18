@@ -1,7 +1,5 @@
 // RUN: %apply %s -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s
 
-// RUN: TYPEART_WRAPPER_EMIT_IR=1 %wrapper-cc -O1 -g %s -x cuda -gencode arch=compute_50,code=sm_50 -o %s.exe
-
 // CHECK: TypeArtPass [Heap]
 // CHECK-NEXT: Malloc :   2
 

@@ -25,6 +25,8 @@ string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}"
   PROJECT_IS_TOP_LEVEL
 )
 
+find_package(MPI REQUIRED)
+
 FetchContent_Declare(
   typeart
   GIT_REPOSITORY https://github.com/tudasc/TypeART.git

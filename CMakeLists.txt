@@ -8,6 +8,8 @@ project(
     LANGUAGES CXX C
 )
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 list(
   APPEND
   CMAKE_MODULE_PATH
