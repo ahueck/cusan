@@ -1,8 +1,8 @@
 // RUN: %wrapper-cc -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
 // RUN: %s.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-cc -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
-// RUN: %s.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-cc -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s-synced.exe
+// RUN: %s-synced.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
 // CHECK: [Error] sync
 

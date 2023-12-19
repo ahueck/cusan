@@ -1,8 +1,8 @@
 // RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
 // RUN: %mpi-exec -n 2 %s.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
-// RUN: %mpi-exec -n 2 %s.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s-synced.exe
+// RUN: %mpi-exec -n 2 %s-synced.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
 // CHECK: [Error] sync
 
@@ -98,6 +98,7 @@ int main(int argc, char* argv[]) {
 
   if (world_rank == 1) {
     int* h_data = (int*)malloc(size * sizeof(int));
+    cudaDeviceSynchronize();
     cudaMemcpy(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < size; i++) {
       const int buf_v = h_data[i];

@@ -1,8 +1,8 @@
 // RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
 // RUN: %mpi-exec -n 2 %s.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
-// RUN: %mpi-exec -n 2 %s.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s-synced.exe
+// RUN: %mpi-exec -n 2 %s-synced.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
 // CHECK: [Error] sync
 

@@ -5,8 +5,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "CucorrPass.h"
+
 #include "CommandLine.h"
-#include "analysis/KernelMemory.h"
+#include "analysis/KernelAnalysis.h"
+#include "support/CudaUtil.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DataLayout.h"
@@ -19,18 +21,24 @@
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 
 using namespace llvm;
 
 namespace cucorr {
 
 class CucorrPass : public llvm::PassInfoMixin<CucorrPass> {
+  cucorr::ModelHandler kernel_models;
+
  public:
   llvm::PreservedAnalyses run(llvm::Module&, llvm::ModuleAnalysisManager&);
 
   bool runOnModule(llvm::Module&);
 
   bool runOnFunc(llvm::Function&);
+
+  bool runOnKernelFunc(llvm::Function&);
 };
 
 class LegacyCucorrPass : public llvm::ModulePass {
@@ -47,29 +55,60 @@ class LegacyCucorrPass : public llvm::ModulePass {
   ~LegacyCucorrPass() override = default;
 };
 
+bool LegacyCucorrPass::runOnModule(llvm::Module& module) {
+  const auto modified = pass_impl_.runOnModule(module);
+  return modified;
+}
+
 llvm::PreservedAnalyses CucorrPass::run(llvm::Module& module, llvm::ModuleAnalysisManager&) {
   const auto changed = runOnModule(module);
   return changed ? llvm::PreservedAnalyses::none() : llvm::PreservedAnalyses::all();
 }
 
 bool CucorrPass::runOnModule(llvm::Module& module) {
-  const auto changed = llvm::count_if(module.functions(), [&](auto& func) { return runOnFunc(func); }) > 1;
+  const auto kernel_models_file = [&module](){
+    for(llvm::DICompileUnit* cu : module.debug_compile_units()){
+      if(!cu->getFilename().empty()){
+        return std::string{cu->getFilename()} + "-data.yaml";
+      }
+    }
+    return std::string{"cucorr-kernel.yaml"};
+  }();
+
+
+
+  llvm::errs() << "Using model data file " << kernel_models_file << "\n";
+  const auto result = io::load(this->kernel_models, kernel_models_file);
+
+  const auto changed = llvm::count_if(module.functions(), [&](auto& func) {
+                         if (cuda::is_kernel(&func)) {
+                           return runOnKernelFunc(func);
+                         }
+                         return runOnFunc(func);
+                       }) > 1;
+  const auto store_result = io::store(this->kernel_models, kernel_models_file);
   return changed;
 }
 
-bool LegacyCucorrPass::runOnModule(llvm::Module& module) {
-  const auto modified = pass_impl_.runOnModule(module);
-  return modified;
-}
-
-bool CucorrPass::runOnFunc(llvm::Function& function) {
+bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   if (function.isDeclaration()) {
     return false;
   }
+  auto data = device::analyze_device_kernel(&function);
+  if (data) {
+    if(!cl_cucorr_quiet.getValue()) {
+      llvm::errs() << "[Device] " << data.value() << "\n";
+    }
+    this->kernel_models.models.emplace_back(data.value());
+  }
 
-  auto data = analyze(&function);
-  if (data.hasValue() && !cl_cucorr_quiet.getValue()) {
-    llvm::errs() << data.getValue() << "\n";
+  return false;
+}
+
+bool CucorrPass::runOnFunc(llvm::Function& function) {
+  auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models);
+  if (data_for_host) {
+    llvm::errs() << "[Host] " << data_for_host.value() << "\n";
   }
 
   return false;

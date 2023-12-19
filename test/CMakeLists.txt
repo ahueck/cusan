@@ -89,6 +89,8 @@ endfunction()
 set(CUCORR_TEST_DEPENDS
   cucorr::TransformPass
   cucorr::Runtime
+  cucorr::Analysis
+  typeart::Runtime
 )
 
 set(CUCORR_SUITES

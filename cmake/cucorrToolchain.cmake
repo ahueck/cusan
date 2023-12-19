@@ -40,6 +40,8 @@ mark_as_advanced(CUCORR_TEST_CONFIGURE_IDE)
 option(CUCORR_CONFIG_DIR_IS_SHARE "Install to \"share/cmake/\" instead of \"lib/cmake/\"" OFF)
 mark_as_advanced(CUCORR_CONFIG_DIR_IS_SHARE)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(warning_guard "")
 if(NOT PROJECT_IS_TOP_LEVEL)
   option(

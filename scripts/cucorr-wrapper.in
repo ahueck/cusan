@@ -77,7 +77,7 @@ function cucorr_global_init_fn() {
   if [ ${typeart_wrapper_emit_ir} == 1 ]; then
     readonly cucorr_gpu_mode=""
   else
-    readonly cucorr_gpu_mode="--cucorr-quiet"
+    readonly cucorr_gpu_mode="" #"--cucorr-quiet"
   fi
 }
 
