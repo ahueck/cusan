@@ -7,4 +7,12 @@
 #ifndef LIB_RUNTIME_CUCORR_H_
 #define LIB_RUNTIME_CUCORR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void _cucorr_register_pointer(const void* ptr, short mode);
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* LIB_RUNTIME_CUCORR_H_ */
