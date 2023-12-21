@@ -9,8 +9,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <optional>
 #include <string_view>
@@ -18,12 +18,7 @@
 namespace cucorr {
 
 struct FunctionArg {
-  enum State {
-    kWritten = 1,
-    kRead = 1 << 1,
-    kNone = 1 << 2,
-    kRW = kRead | kWritten
-  };
+  enum State { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
   llvm::Optional<const llvm::Argument*> arg{nullptr};
   unsigned arg_pos{0};
   bool is_pointer{false};
@@ -33,7 +28,7 @@ struct FunctionArg {
 struct KernelModel {
   llvm::Optional<const llvm::Function*> kernel{nullptr};
   std::string kernel_name{};
-//  unsigned kernel_id{0};
+  //  unsigned kernel_id{0};
   llvm::SmallVector<FunctionArg, 4> args{};
 };
 
@@ -49,7 +44,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream&, const FunctionArg&);
 namespace io {
 [[nodiscard]] llvm::ErrorOr<bool> store(const ModelHandler& kernel_db, std::string_view file);
 [[nodiscard]] llvm::ErrorOr<bool> load(ModelHandler& kernel_db, std::string_view file);
-}
+}  // namespace io
 
 }  // namespace cucorr
 

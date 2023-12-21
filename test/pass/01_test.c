@@ -1,4 +1,4 @@
-// RUN: %apply %s -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s
+// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s
 
 // CHECK: TypeArtPass [Heap]
 // CHECK-NEXT: Malloc :   2
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
   cudaMemcpy(host_y, device_y, kDataLen * sizeof(float), cudaMemcpyDeviceToHost);
 
   for (int i = 0; i < kDataLen; ++i) {
-    printf("y[%i] = %f\n",i, host_y[i]);
+    printf("y[%i] = %f\n", i, host_y[i]);
   }
 
   cudaDeviceReset();

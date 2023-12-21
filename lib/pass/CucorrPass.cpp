@@ -71,6 +71,11 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
       return cl_cucorr_kernel_file.getValue();
     }
 
+    const auto* data_file = getenv("CUCORR_KERNEL_DATA_FILE");
+    if (data_file) {
+      return std::string{data_file};
+    }
+
     for (llvm::DICompileUnit* cu : module.debug_compile_units()) {
       if (!cu->getFilename().empty()) {
         return std::string{cu->getFilename()} + "-data.yaml";
@@ -98,7 +103,7 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   auto data = device::analyze_device_kernel(&function);
   if (data) {
     if (!cl_cucorr_quiet.getValue()) {
-      //      llvm::errs() << "[Device] " << data.value() << "\n";
+      llvm::errs() << "[Device] " << data.value() << "\n";
     }
     this->kernel_models.insert(data.value());
   }

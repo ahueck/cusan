@@ -9,20 +9,20 @@
 namespace cucorr::runtime {
 
 class Runtime {
-public:
-  static Runtime &get() {
+ public:
+  static Runtime& get() {
     static Runtime run_t;
     return run_t;
   }
 
-  Runtime(const Runtime &) = delete;
+  Runtime(const Runtime&) = delete;
 
-  void operator=(const Runtime &) = delete;
+  void operator=(const Runtime&) = delete;
 
-private:
+ private:
   Runtime() = default;
 
   ~Runtime() = default;
 };
 
-} // namespace cucorr::runtime
+}  // namespace cucorr::runtime

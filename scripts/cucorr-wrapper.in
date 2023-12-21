@@ -545,6 +545,8 @@ function typeart_main_compile_fn() {
     typeart_object_file="${out_basename}".o
   fi
 
+  export CUCORR_KERNEL_DATA_FILE="${out_basename}".yaml
+
   if [ "$typeart_found_cuda" == 1 ]; then
     typeart_compile_cuda_device_fn
     typeart_to_llvm_more_flags="$typeart_to_llvm_more_flags -fPIC -x cuda --cuda-host-only -Xclang -fcuda-include-gpubinary -Xclang ${out_basename}.fatbin"

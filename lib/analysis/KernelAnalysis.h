@@ -20,6 +20,6 @@ namespace host {
 std::optional<KernelModel> kernel_model_for_stub(llvm::Function*, const ModelHandler&);
 }
 
-}
+}  // namespace cucorr
 
 #endif  // CUCORR_KERNELANALYSIS_H

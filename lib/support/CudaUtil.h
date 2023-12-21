@@ -10,10 +10,10 @@
 
 namespace cucorr::cuda {
 
-//bool AA::isGPU(const Module &M) {
-//  Triple T(M.getTargetTriple());
-//  return T.isAMDGPU() || T.isNVPTX();
-//}
+// bool AA::isGPU(const Module &M) {
+//   Triple T(M.getTargetTriple());
+//   return T.isAMDGPU() || T.isNVPTX();
+// }
 
 inline bool is_kernel(const llvm::Function* function) {
   const auto* module   = function->getParent();
