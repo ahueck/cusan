@@ -70,14 +70,31 @@ std::optional<KernelModel> analyze_device_kernel(llvm::Function* f) {
 
 namespace host {
 
-std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelHandler& models){
+std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelHandler& models) {
+  const auto stub_name = [&](const auto& name) {
+    auto stub_name    = std::string{name};
+    const auto prefix = std::string{"__device_stub__"};
+    const auto pos    = stub_name.find(prefix);
+    if (pos != std::string::npos) {
+      stub_name.erase(pos, prefix.length());
+    }
+    return stub_name;
+  }(util::try_demangle(*f));
+
+  const auto result = llvm::find_if(models.models, [&stub_name](const auto& model_) {
+    if (llvm::StringRef(util::demangle(model_.kernel_name)).startswith(stub_name)) {
+      return true;
+    }
+    return false;
+  });
+
+  if (result != std::end(models.models)) {
+    return *result;
+  }
+
   return {};
 }
 
-}
-
-namespace io {
-
-}
+}  // namespace host
 
 }  // namespace cucorr

@@ -1,17 +1,19 @@
-// RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %s.exe
-// RUN: %mpi-exec -n 2 %s.exe 2>&1 | %filecheck --allow-empty %s
+// clang-format off
+// RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
+// RUN: %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck --allow-empty %s
+
+// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
+// RUN: %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck --allow-empty %s
+// clang-format on
 
 // CHECK-NOT: [Error] sync
 
-#include <mpi.h>
-#include <stdio.h>
-
-#include <mpi-ext.h> /* Needed for CUDA-aware check */
+#include "../support/gpu_mpi.h"
 
 __global__ void kernel_init(int* arr, const int N) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
-    arr[tid] = -(tid+1);
+    arr[tid] = -(tid + 1);
   }
 }
 
@@ -30,29 +32,14 @@ __global__ void kernel(int* arr, const int N, int* result) {
 }
 
 int main(int argc, char* argv[]) {
-  printf("Compile time check:\n");
-#if defined(MPIX_CUDA_AWARE_SUPPORT) && MPIX_CUDA_AWARE_SUPPORT
-  printf("This MPI library has CUDA-aware support.\n", MPIX_CUDA_AWARE_SUPPORT);
-#elif defined(MPIX_CUDA_AWARE_SUPPORT) && !MPIX_CUDA_AWARE_SUPPORT
-  printf("This MPI library does not have CUDA-aware support.\n");
-#else
-  printf("This MPI library cannot determine if there is CUDA-aware support.\n");
-#endif /* MPIX_CUDA_AWARE_SUPPORT */
-  printf("Run time check:\n");
-#if defined(MPIX_CUDA_AWARE_SUPPORT)
-  if (1 == MPIX_Query_cuda_support()) {
-    printf("This MPI library has CUDA-aware support.\n");
-  } else {
-    printf("This MPI library does not have CUDA-aware support.\n");
+  if (!has_gpu_aware_mpi()) {
+    printf("This example is designed for CUDA-aware MPI. Exiting.\n");
+    return 1;
   }
-#else  /* !defined(MPIX_CUDA_AWARE_SUPPORT) */
-  printf("This MPI library cannot determine if there is CUDA-aware support.\n");
-#endif /* MPIX_CUDA_AWARE_SUPPORT */
 
   const int size            = 512;
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
-
 
   MPI_Init(&argc, &argv);
   int world_size, world_rank;
@@ -94,7 +81,7 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < size; i++) {
       const int buf_v = h_data[i];
-      if(buf_v >= 0){
+      if (buf_v >= 0) {
         printf("[Error] sync\n");
       }
     }

@@ -12,6 +12,8 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -21,8 +23,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 
 using namespace llvm;
 
@@ -66,21 +66,22 @@ llvm::PreservedAnalyses CucorrPass::run(llvm::Module& module, llvm::ModuleAnalys
 }
 
 bool CucorrPass::runOnModule(llvm::Module& module) {
-  const auto kernel_models_file = [&module](){
-    for(llvm::DICompileUnit* cu : module.debug_compile_units()){
-      if(!cu->getFilename().empty()){
+  const auto kernel_models_file = [&]() {
+    if (cl_cucorr_kernel_file.getNumOccurrences()) {
+      return cl_cucorr_kernel_file.getValue();
+    }
+
+    for (llvm::DICompileUnit* cu : module.debug_compile_units()) {
+      if (!cu->getFilename().empty()) {
         return std::string{cu->getFilename()} + "-data.yaml";
       }
     }
     return std::string{"cucorr-kernel.yaml"};
   }();
 
-
-
   llvm::errs() << "Using model data file " << kernel_models_file << "\n";
-  const auto result = io::load(this->kernel_models, kernel_models_file);
-
-  const auto changed = llvm::count_if(module.functions(), [&](auto& func) {
+  const auto result       = io::load(this->kernel_models, kernel_models_file);
+  const auto changed      = llvm::count_if(module.functions(), [&](auto& func) {
                          if (cuda::is_kernel(&func)) {
                            return runOnKernelFunc(func);
                          }
@@ -96,10 +97,10 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   }
   auto data = device::analyze_device_kernel(&function);
   if (data) {
-    if(!cl_cucorr_quiet.getValue()) {
-      llvm::errs() << "[Device] " << data.value() << "\n";
+    if (!cl_cucorr_quiet.getValue()) {
+      //      llvm::errs() << "[Device] " << data.value() << "\n";
     }
-    this->kernel_models.models.emplace_back(data.value());
+    this->kernel_models.insert(data.value());
   }
 
   return false;

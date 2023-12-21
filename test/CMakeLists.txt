@@ -28,6 +28,7 @@ function(configure_cucorr_lit_site_cfg input output)
   set(CUCORR_PASS_DIR ${CUCORR_LIBRARY_DIR}/pass)
   set(CUCORR_RUNTIME_DIR ${CUCORR_LIBRARY_DIR}/runtime)
   set(CUCORR_SCRIPT_DIR ${CMAKE_BINARY_DIR}/scripts)
+  set(CUCORR_BUILD_DIR ${CMAKE_BINARY_DIR})
 
   if(${LLVM_VERSION_MAJOR} VERSION_GREATER_EQUAL "13")
     set(CUCORR_OPT_ARGS "-enable-new-pm=0")

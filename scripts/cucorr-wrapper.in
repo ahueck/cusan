@@ -508,7 +508,7 @@ function typeart_compile_cuda_device_fn() {
     -fPIC -x cuda "${typeart_source_file}" --cuda-device-only --cuda-gpu-arch=${typeart_cuda_code_arch} -o - |
     typeart_opt_fn "${out_basename}"_cucorr_gpu_mem2reg.ll -mem2reg |
     typeart_opt_fn "${out_basename}"_cucorr_gpu.ll ${cucorr_plugin} ${cucorr_gpu_mode} |
-    $typeart_llc_tool -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
+    $typeart_llc_tool -dwarf-directory=0 -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
     -o "${out_basename}".ptx
 
   ptxas -m64 --gpu-name=${typeart_cuda_code_arch} "${out_basename}".ptx -o "${out_basename}".ptx.o
@@ -532,7 +532,14 @@ function typeart_compile_host_fn() {
 }
 
 function typeart_main_compile_fn() {
-  local -r out_basename="${typeart_source_file%.*}"
+  if [ "${typeart_found_exe_file}" == 0 ]; then
+    local -r out_basename="${typeart_source_file%.*}"
+  else
+    # put temp files like .ptx, .fatbin to the location of the executable
+    local -r out_base_exe="${typeart_exe_file%/*}"
+    local -r out_basename_ext="${typeart_source_file##*/}"
+    local -r out_basename=${out_base_exe}/"${out_basename_ext%.*}"
+  fi
   if [ -z "${typeart_object_file}" ]; then
     # if no object file is specified, use filename(typeart_source_file).o
     typeart_object_file="${out_basename}".o

@@ -11,6 +11,8 @@ config.llc = "@CUCORR_LLC_EXEC@"
 config.filecheck = "@CUCORR_FILECHECK_EXEC@"
 config.mpiexec="@MPIEXEC@"
 
+config.cucorr_build_dir="@CUCORR_BUILD_DIR@"
+
 # Project related:
 config.cucorr_lib_dir = "@CUCORR_LIBRARY_DIR@"
 config.cucorr_pass_dir = "@CUCORR_PASS_DIR@"

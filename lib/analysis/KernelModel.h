@@ -39,6 +39,7 @@ struct KernelModel {
 
 struct ModelHandler {
   std::vector<KernelModel> models;
+  bool insert(const KernelModel&);
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream&, const ModelHandler&);

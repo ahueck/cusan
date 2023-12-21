@@ -3,6 +3,7 @@
 //
 
 #include "KernelModel.h"
+
 #include "support/CudaUtil.h"
 #include "support/Util.h"
 
@@ -26,7 +27,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const KernelModel& model) {
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg::State& arg) {
-  switch(arg){
+  switch (arg) {
     case FunctionArg::kWritten:
       os << "Write";
       break;
@@ -43,9 +44,21 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg::State& a
   return os;
 }
 
+bool ModelHandler::insert(const cucorr::KernelModel& model) {
+  const auto result =
+      llvm::find_if(models, [&model](const auto& model_) { return model.kernel_name == model_.kernel_name; });
+
+  if (result == std::end(models)) {
+    models.emplace_back(model);
+    return true;
+  }
+
+  return false;
+}
+
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
   os << "[";
-  if(arg.arg.hasValue()) {
+  if (arg.arg.hasValue()) {
     os << *arg.arg.getValue();
   } else {
     os << "<null>";
@@ -57,14 +70,14 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ModelHandler& arg) {
   const auto& models = arg.models;
-  if(models.empty()){
+  if (models.empty()) {
     os << "<[ ]>";
     return os;
   }
 
   auto begin = std::begin(models);
   os << "<[" << *begin;
-  std::for_each(std::next(begin), std::end(models), [&](const auto& model){
+  std::for_each(std::next(begin), std::end(models), [&](const auto& model) {
     os << ", ";
     os << model;
   });

@@ -62,6 +62,9 @@ struct llvm::yaml::ScalarTraits<cucorr::FunctionArg::State> {
 template <>
 struct llvm::yaml::MappingTraits<cucorr::FunctionArg> {
   static void mapping(IO& io, cucorr::FunctionArg& info) {
+    if (!io.outputting()) {
+      info.arg = llvm::None;
+    }
     io.mapRequired("position", info.arg_pos);
     io.mapRequired("access", info.state);
     io.mapRequired("pointer", info.is_pointer);
@@ -73,9 +76,12 @@ LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionArg)
 template <>
 struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
   static void mapping(IO& io, cucorr::KernelModel& info) {
+    if (!io.outputting()) {
+      info.kernel = llvm::None;
+    }
     io.mapRequired("name", info.kernel_name);
     io.mapRequired("args", info.args);
-    info.kernel = {};
+    //    info.kernel = {};
   }
 };
 
