@@ -17,12 +17,28 @@
 
 namespace cucorr {
 
+enum class AccessState : short { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
+
+inline constexpr const char* access_state_string(AccessState state) {
+  switch (state) {
+    case AccessState::kWritten:
+      return "Write";
+    case AccessState::kRead:
+      return "Read";
+    case AccessState::kRW:
+      return "ReadWrite";
+    case AccessState::kNone:
+      return "None";
+    default:
+      return "";
+  }
+}
+
 struct FunctionArg {
-  enum State { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
   llvm::Optional<const llvm::Argument*> arg{nullptr};
   unsigned arg_pos{0};
   bool is_pointer{false};
-  State state{kRW};
+  AccessState state{AccessState::kRW};
 };
 
 struct KernelModel {

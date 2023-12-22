@@ -26,21 +26,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const KernelModel& model) {
   return os;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg::State& arg) {
-  switch (arg) {
-    case FunctionArg::kWritten:
-      os << "Write";
-      break;
-    case FunctionArg::kRead:
-      os << "Read";
-      break;
-    case FunctionArg::kNone:
-      os << "None";
-      break;
-    case FunctionArg::kRW:
-      os << "R/W";
-      break;
-  }
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const AccessState& arg) {
+  os << access_state_string(arg);
   return os;
 }
 

@@ -9,6 +9,7 @@
 #include "CommandLine.h"
 #include "analysis/KernelAnalysis.h"
 #include "support/CudaUtil.h"
+#include "support/Logger.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
@@ -133,19 +134,7 @@ struct KernelInvokeTransformer {
 
     auto target_callback = decls_->cucorr_register_access;
 
-    auto access_encoding = [&](FunctionArg::State access) -> short {
-      switch (access) {
-        case FunctionArg::State::kRead:
-          return 1;
-        case FunctionArg::State::kWritten:
-          return 2;
-        case FunctionArg::State::kRW:
-          return 4;
-        case FunctionArg::State::kNone:
-          return 8;
-      }
-      return 16;
-    };
+    auto access_encoding = [&](AccessState access) -> short { return static_cast<short>(access); };
 
     // normal callinst:
     IRBuilder<> irb(call_inst->getPrevNode());
@@ -155,11 +144,11 @@ struct KernelInvokeTransformer {
         auto* void_ptr    = irb.CreateBitOrPointerCast(pointer, irb.getInt8PtrTy());
         const auto access = access_encoding(arg.state);
 
-        if (access > 4) {
+        if (access == static_cast<short>(AccessState::kNone)) {
           continue;
         }
         auto const_access_val = irb.getInt16(access);
-        llvm::errs() << "Insert " << *void_ptr << " access " << *const_access_val << "\n";
+        LOG_DEBUG("Insert " << *void_ptr << " access " << *const_access_val)
         Value* args_cucorr_register[] = {void_ptr, const_access_val};
         irb.CreateCall(target_callback.f, args_cucorr_register);
       }
@@ -228,7 +217,7 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
     return std::string{"cucorr-kernel.yaml"};
   }();
 
-  llvm::errs() << "Using model data file " << kernel_models_file << "\n";
+  LOG_DEBUG("Using model data file " << kernel_models_file)
   const auto result       = io::load(this->kernel_models, kernel_models_file);
   const auto changed      = llvm::count_if(module.functions(), [&](auto& func) {
                          if (cuda::is_kernel(&func)) {
@@ -247,7 +236,7 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   auto data = device::analyze_device_kernel(&function);
   if (data) {
     if (!cl_cucorr_quiet.getValue()) {
-      llvm::errs() << "[Device] " << data.value() << "\n";
+      LOG_DEBUG("[Device] Kernel data: " << data.value())
     }
     this->kernel_models.insert(data.value());
   }
@@ -260,7 +249,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   if (!data_for_host) {
     return false;
   }
-  llvm::errs() << "[Host] " << data_for_host.value() << "\n";
+
+  LOG_DEBUG("[Host] Kernel data: " << data_for_host.value())
 
   analysis::CudaKernelInvokeCollector visitor{data_for_host.value()};
   visitor.visit(function);

@@ -5,6 +5,7 @@
 #include "KernelAnalysis.h"
 
 #include "support/CudaUtil.h"
+#include "support/Logger.h"
 #include "support/Util.h"
 
 #include <llvm/Transforms/IPO/Attributor.h>
@@ -12,17 +13,17 @@
 namespace cucorr {
 
 namespace device {
-inline FunctionArg::State state(const llvm::AAMemoryBehavior& mem) {
+inline AccessState state(const llvm::AAMemoryBehavior& mem) {
   if (mem.isAssumedReadNone()) {
-    return FunctionArg::State::kNone;
+    return AccessState::kNone;
   }
   if (mem.isAssumedReadOnly()) {
-    return FunctionArg::State::kRead;
+    return AccessState::kRead;
   }
   if (mem.isAssumedWriteOnly()) {
-    return FunctionArg::State::kWritten;
+    return AccessState::kWritten;
   }
-  return FunctionArg::kRW;
+  return AccessState::kRW;
 }
 
 std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
@@ -48,7 +49,7 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
       const FunctionArg kernel_arg{&arg, arg.getArgNo(), true, state(mem_behavior)};
       args.emplace_back(kernel_arg);
     } else {
-      const FunctionArg kernel_arg{&arg, arg.getArgNo(), false, FunctionArg::kRW};
+      const FunctionArg kernel_arg{&arg, arg.getArgNo(), false, AccessState::kRW};
       args.emplace_back(kernel_arg);
     }
   }
@@ -59,6 +60,8 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
 
 std::optional<KernelModel> analyze_device_kernel(llvm::Function* f) {
   if (!cuda::is_kernel(f)) {
+    assert(f != nullptr && "Function should not be null here!");
+    LOG_DEBUG("Function is not a kernel " << f->getName())
     return {};
   }
   using namespace llvm;
@@ -81,6 +84,8 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelH
     return stub_name;
   }(util::try_demangle(*f));
 
+  LOG_DEBUG("Looking for stub name " << stub_name)
+
   const auto result = llvm::find_if(models.models, [&stub_name](const auto& model_) {
     if (llvm::StringRef(util::demangle(model_.kernel_name)).startswith(stub_name)) {
       return true;
@@ -89,9 +94,11 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelH
   });
 
   if (result != std::end(models.models)) {
+    LOG_DEBUG("Found fitting kernel data " << *result)
     return *result;
   }
 
+  LOG_DEBUG("Found no kernel data for stub")
   return {};
 }
 

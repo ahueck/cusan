@@ -6,15 +6,18 @@
 
 #include "CucorrRuntime.h"
 
+#include "RuntimeInterface.h"
+#include "analysis/KernelModel.h"
+#include "support/Logger.h"
+
 #include <iostream>
 #include <map>
 
 namespace cucorr::runtime {
 
-enum class Access : int { Read = 1, Write = 1 << 1, RW = Read | Write };
-
 struct PointerAccess {
-  Access mode{Access::RW};
+  size_t alloc_size{0};
+  AccessState mode{AccessState::kRW};
 };
 
 class Runtime {
@@ -31,10 +34,15 @@ class Runtime {
   void operator=(const Runtime&) = delete;
 
   void emplace_pointer_access(const void* ptr, short mode) {
-    const auto emplace_token = access_map.emplace(ptr, PointerAccess{Access{mode}});
+    size_t alloc_size{0};
+    auto query_status = typeart_get_type_length(ptr, &alloc_size);
+    if (query_status != TYPEART_OK) {
+      LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
+    }
+    const auto emplace_token = access_map.emplace(ptr, PointerAccess{alloc_size, AccessState{mode}});
     if (emplace_token.second) {
-      std::cerr << emplace_token.first->first << " mode= " << static_cast<int>(emplace_token.first->second.mode)
-                << "\n";
+      LOG_TRACE(emplace_token.first->first << " of size=" << alloc_size
+                                           << " with access=" << access_state_string(emplace_token.first->second.mode))
     }
   }
 
@@ -47,6 +55,5 @@ class Runtime {
 }  // namespace cucorr::runtime
 
 void _cucorr_register_pointer(const void* ptr, short mode) {
-  std::cerr << "Callback called \n";
   cucorr::runtime::Runtime::get().emplace_pointer_access(ptr, mode);
 }

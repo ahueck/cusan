@@ -26,30 +26,18 @@ auto open_flag() {
 }  // namespace compat
 
 template <>
-struct llvm::yaml::ScalarTraits<cucorr::FunctionArg::State> {
-  static void output(const cucorr::FunctionArg::State& value, void*, llvm::raw_ostream& out) {
-    switch (value) {
-      case cucorr::FunctionArg::kWritten:
-        out << "Write";
-        break;
-      case cucorr::FunctionArg::kRead:
-        out << "Read";
-        break;
-      case cucorr::FunctionArg::kNone:
-        out << "None";
-        break;
-      case cucorr::FunctionArg::kRW:
-        out << "ReadWrite";
-        break;
-    }
+struct llvm::yaml::ScalarTraits<cucorr::AccessState> {
+  static void output(const cucorr::AccessState& value, void*, llvm::raw_ostream& out) {
+    out << cucorr::access_state_string(value);
   }
 
-  static llvm::StringRef input(llvm::StringRef scalar, void*, cucorr::FunctionArg::State& value) {
-    value = llvm::StringSwitch<cucorr::FunctionArg::State>(scalar)
-                .Case("Write", cucorr::FunctionArg::State::kWritten)
-                .Case("None", cucorr::FunctionArg::State::kNone)
-                .Case("Read", cucorr::FunctionArg::State::kRead)
-                .Default(cucorr::FunctionArg::State::kRW);
+  static llvm::StringRef input(llvm::StringRef scalar, void*, cucorr::AccessState& value) {
+    // FIXME keep stringliteral and enum value in sync, see cucorr::access_state_string
+    value = llvm::StringSwitch<cucorr::AccessState>(scalar)
+                .Case("Write", cucorr::AccessState::kWritten)
+                .Case("None", cucorr::AccessState::kNone)
+                .Case("Read", cucorr::AccessState::kRead)
+                .Default(cucorr::AccessState::kRW);
     return StringRef();
   }
 
