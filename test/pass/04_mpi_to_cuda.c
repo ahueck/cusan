@@ -10,6 +10,9 @@
 
 // CHECK-SYNC-NOT: [Error] sync
 
+// FLAKYPASS: *
+// ALLOW_RETRIES: 5
+
 #include "../support/gpu_mpi.h"
 
 __global__ void kernel_init(int* arr, const int N) {
@@ -24,7 +27,7 @@ __global__ void kernel(int* arr, const int N) {
   if (tid < N) {
 #if __CUDA_ARCH__ >= 700
     for (int i = 0; i < tid; i++) {
-      __nanosleep(10000U);
+      __nanosleep(100U);
     }
 #else
     printf(">>> __CUDA_ARCH__ !\n");

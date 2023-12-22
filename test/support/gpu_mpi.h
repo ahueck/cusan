@@ -8,6 +8,9 @@
 #include <stdio.h>
 // clang-format on
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 inline void print_gpu_aware_mpi() {
   printf("Compile time check:\n");
 #if defined(MPIX_CUDA_AWARE_SUPPORT) && MPIX_CUDA_AWARE_SUPPORT
@@ -35,5 +38,8 @@ inline bool has_gpu_aware_mpi() {
 #endif /* MPIX_CUDA_AWARE_SUPPORT */
   return false;
 }
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CUCORR_GPUAWAREMPI_H
