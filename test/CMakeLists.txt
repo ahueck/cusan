@@ -92,11 +92,13 @@ set(CUCORR_TEST_DEPENDS
   cucorr::Runtime
   cucorr::Analysis
   typeart::Runtime
+  typeart::TransformPass
 )
 
 set(CUCORR_SUITES
   all
   pass
+  tsan
 )
 
 cucorr_add_lit_target(SUITES ${CUCORR_SUITES})
