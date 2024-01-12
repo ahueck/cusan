@@ -73,10 +73,10 @@ int main(int argc, char* argv[]) {
     kernel<<<blocksPerGrid, threadsPerBlock>>>(d_data, size);
 
     // assume worst case: memory write to d_data of "size"
-    TsanMemoryWrite(d_data, size);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+    TsanMemoryWrite(d_data, size * sizeof(int));  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
 
     // write in sync clock for later synchronization
-    TsanHappensBefore(&dummy);  // could be any memory address
+    TsanHappensBefore(&dummy);  // release
 
     // switch to main fiber *without* synchronization, since the CUDA memory access is ongoing
     __tsan_switch_to_fiber(mycurrfiber, 1);
@@ -84,17 +84,17 @@ int main(int argc, char* argv[]) {
 #ifdef CUCORR_SYNC
     cudaDeviceSynchronize();  // FIXME: uncomment for correct execution
     // if we synchronize with cudaDeviceSynchronize, we can be sure that the CUDA memory access is completed here
-    TsanHappensAfter(&dummy);
+    TsanHappensAfter(&dummy);  // aquire
 #endif
 
     MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);
     // annotate local buffer read of MPI_Send as memory read in main thread
-    TsanMemoryRead(d_data, size);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+    TsanMemoryRead(d_data, size * sizeof(int));  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
 
   } else if (world_rank == 1) {
     MPI_Recv(d_data, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     // annotate local buffer write of MPI_Recv as memory write in main thread
-    TsanMemoryWrite(d_data, size);
+    TsanMemoryWrite(d_data, size * sizeof(int));
   }
 
   if (world_rank == 1) {
