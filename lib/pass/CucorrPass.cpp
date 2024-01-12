@@ -42,6 +42,7 @@ struct FunctionDecl {
   };
 
   CucorrFunction cucorr_register_access{"_cucorr_register_pointer"};
+  CucorrFunction cucorr_register_access_n{"_cucorr_register_pointer_n"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -64,8 +65,12 @@ struct FunctionDecl {
       }
     };
 
-    Type* arg_types_cucorr_register[] = {Type::getInt8PtrTy(c), Type::getInt16Ty(c)};
+    Type* arg_types_cucorr_register[] = {Type::getInt8PtrTy(c), Type::getInt16Ty(c), Type::getInt8PtrTy(c)};
     make_function(cucorr_register_access, FunctionType::get(Type::getVoidTy(c), arg_types_cucorr_register, false));
+    // TODO address space?
+    Type* arg_types_cucorr_register_n[] = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
+                                           Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
+    make_function(cucorr_register_access_n, FunctionType::get(Type::getVoidTy(c), arg_types_cucorr_register_n, false));
   }
 };
 
@@ -80,6 +85,7 @@ using KernelArgInfo = cucorr::FunctionArg;
 struct KernelInvokeData {
   llvm::CallBase* call{nullptr};
   llvm::SmallVector<KernelArgInfo, 4> args{};
+  llvm::Value* void_arg_array{nullptr};
   llvm::Value* cu_stream{nullptr};
 };
 
@@ -95,9 +101,10 @@ struct CudaKernelInvokeCollector : public llvm::InstVisitor<CudaKernelInvokeColl
   void visitCallBase(llvm::CallBase& cb) {
     if (auto* f = cb.getCalledFunction()) {
       if (kCudaKernelInvokes.contains(f->getName())) {
-        auto* cu_stream_handle = std::prev(cb.arg_end())->get();
-        auto kernel_args       = extract_kernel_args_for(*cb.getFunction());
-        invokes_.emplace_back(KernelInvokeData{&cb, kernel_args, cu_stream_handle});
+        auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
+        auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
+        auto kernel_args            = extract_kernel_args_for(*cb.getFunction());
+        invokes_.emplace_back(KernelInvokeData{&cb, kernel_args, void_kernel_arg_array, cu_stream_handle});
       }
     }
   }
@@ -132,24 +139,84 @@ struct KernelInvokeTransformer {
     const auto call_inst = data.call;
     const bool is_invoke = llvm::isa<llvm::InvokeInst>(call_inst);
 
-    auto target_callback = decls_->cucorr_register_access;
-
-    auto access_encoding = [&](AccessState access) -> short { return static_cast<short>(access); };
-
     // normal callinst:
-    IRBuilder<> irb(call_inst->getPrevNode());
+    IRBuilder<> irb(call_inst);
+
+    generate_compound_cb(data, irb);
+    return generate_single_cb(data, irb);
+  }
+
+ private:
+  short access_cast(AccessState access, bool is_ptr) const {
+    short value = static_cast<short>(access);
+    value <<= 1;
+    if (is_ptr) {
+      value |= 1;
+    }
+    return value;
+  }
+
+  llvm::Value* get_cu_stream_ptr(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+    auto cu_stream = data.cu_stream;
+    assert(cu_stream != nullptr && "Require cuda stream!");
+    auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(cu_stream, irb.getInt8PtrTy());
+    return cu_stream_void_ptr;
+  }
+
+  bool generate_compound_cb(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+    const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
+
+    if (!should_transform) {
+      return false;
+    }
+
+    auto target_callback = decls_->cucorr_register_access_n;
+
+    auto i16_ty = Type::getInt16Ty(irb.getContext());
+    auto i32_ty = Type::getInt32Ty(irb.getContext());
+
+    auto cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
+    auto arg_size           = irb.getInt32(data.args.size());
+    auto arg_access_array   = irb.CreateAlloca(i16_ty, arg_size);
+
+    for (const auto& arg : llvm::enumerate(data.args)) {
+      const auto access = access_cast(arg.value().state, arg.value().is_pointer);
+      Value* Idx        = ConstantInt::get(i32_ty, arg.index());
+      Value* acc        = ConstantInt::get(i16_ty, access);
+      auto gep          = irb.CreateGEP(i16_ty, arg_access_array, Idx);
+      irb.CreateStore(acc, gep);
+    }
+
+    auto ptr_ptr_ptr_ty           = PointerType::get(PointerType::get(Type::getInt8PtrTy(irb.getContext()), 0), 0);
+    auto* void_ptr_array_cast     = irb.CreateBitOrPointerCast(data.void_arg_array, ptr_ptr_ptr_ty);
+    Value* args_cucorr_register[] = {void_ptr_array_cast, arg_access_array, arg_size, cu_stream_void_ptr};
+    irb.CreateCall(target_callback.f, args_cucorr_register);
+
+    return true;
+  }
+
+  bool generate_single_cb(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+    const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
+
+    if (!should_transform) {
+      return false;
+    }
+
+    auto target_callback    = decls_->cucorr_register_access;
+    auto cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
     for (const auto& arg : data.args) {
       if (arg.is_pointer) {
         auto* pointer     = const_cast<Value*>(dyn_cast<Value>(arg.arg.getValue()));
         auto* void_ptr    = irb.CreateBitOrPointerCast(pointer, irb.getInt8PtrTy());
-        const auto access = access_encoding(arg.state);
+        const auto access = access_cast(arg.state, arg.is_pointer);
 
         if (access == static_cast<short>(AccessState::kNone)) {
           continue;
         }
         auto const_access_val = irb.getInt16(access);
-        LOG_DEBUG("Insert " << *void_ptr << " access " << *const_access_val)
-        Value* args_cucorr_register[] = {void_ptr, const_access_val};
+        //        LOG_DEBUG("Insert " << *void_ptr << " access " << *const_access_val << " and stream " <<
+        //        *cu_stream_void_ptr)
+        Value* args_cucorr_register[] = {void_ptr, const_access_val, cu_stream_void_ptr};
         irb.CreateCall(target_callback.f, args_cucorr_register);
       }
     }

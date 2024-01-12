@@ -84,7 +84,7 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelH
     return stub_name;
   }(util::try_demangle(*f));
 
-  LOG_DEBUG("Looking for stub name " << stub_name)
+  //  LOG_DEBUG("Looking for stub name " << stub_name)
 
   const auto result = llvm::find_if(models.models, [&stub_name](const auto& model_) {
     if (llvm::StringRef(util::demangle(model_.kernel_name)).startswith(stub_name)) {
@@ -94,11 +94,11 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelH
   });
 
   if (result != std::end(models.models)) {
-    LOG_DEBUG("Found fitting kernel data " << *result)
+    //    LOG_DEBUG("Found fitting kernel data " << *result)
     return *result;
   }
 
-  LOG_DEBUG("Found no kernel data for stub")
+  //  LOG_DEBUG("Found no kernel data for stub")
   return {};
 }
 

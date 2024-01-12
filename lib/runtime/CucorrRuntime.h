@@ -10,7 +10,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void _cucorr_register_pointer(const void* ptr, short mode);
+void _cucorr_register_pointer(const void* ptr, short mode, const void* stream);
+void _cucorr_register_pointer_n(void*** ptr_array, short* modes, int n, const void* stream);
 #ifdef __cplusplus
 }
 #endif
