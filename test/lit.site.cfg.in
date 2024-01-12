@@ -1,6 +1,15 @@
 @LIT_SITE_CFG_IN_HEADER@
 
 import sys
+import os
+
+# RWTH CLAIX: force UCX such that CUDA-aware OpenMPI works
+config.environment['OMPI_MCA_pml'] = "ucx"
+
+# Inherit *all* environment variables, otherwise crashes (TODO: find out required env variables)
+for envvar in os.environ:
+    config.environment[envvar] = os.environ[envvar]
+    continue
 
 # LLVM toolchain:
 config.clang_cpp = "@CUCORR_CLANGCXX_EXEC@"
