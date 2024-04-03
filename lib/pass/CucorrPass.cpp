@@ -34,15 +34,21 @@ using namespace llvm;
 namespace cucorr {
 
 namespace callback {
+struct CucorrFunction {
+  const std::string name;
+  llvm::FunctionCallee f{nullptr};
+  llvm::SmallVector<llvm::Type*, 4> arg_types{};
+};
 
 struct FunctionDecl {
-  struct CucorrFunction {
-    const std::string name;
-    llvm::FunctionCallee f{nullptr};
-  };
+  CucorrFunction cucorr_register_access{"_cucorr_kernel_register"};
+  CucorrFunction cucorr_register_access_n{"_cucorr_kernel_register_n"};
 
-  CucorrFunction cucorr_register_access{"_cucorr_register_pointer"};
-  CucorrFunction cucorr_register_access_n{"_cucorr_register_pointer_n"};
+  CucorrFunction cucorr_event_record{"_cucorr_event_record"};
+
+  CucorrFunction cucorr_sync_device{"_cucorr_sync_device"};
+  CucorrFunction cucorr_sync_stream{"_cucorr_sync_stream"};
+  CucorrFunction cucorr_sync_event{"_cucorr_sync_event"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -53,24 +59,41 @@ struct FunctionDecl {
       arg.addAttr(Attribute::ReadOnly);
     };
 
-    const auto make_function = [&](auto& f_struct, auto f_type) {
-      auto func_callee = m.getOrInsertFunction(f_struct.name, f_type);
-      f_struct.f       = func_callee;
+    const auto make_function = [&](auto& f_struct, auto f_types) {
+      auto func_type     = f_types.empty() ? FunctionType::get(Type::getVoidTy(c), false)
+                                           : FunctionType::get(Type::getVoidTy(c), f_types, false);
+      auto func_callee   = m.getOrInsertFunction(f_struct.name, func_type);
+      f_struct.f         = func_callee;
+      f_struct.arg_types = std::move(f_types);
       if (auto f = dyn_cast<Function>(f_struct.f.getCallee())) {
         f->setLinkage(GlobalValue::ExternalLinkage);
+        if (f->arg_size() == 0) {
+          return;
+        }
         auto& first_param = *(f->arg_begin());
         if (first_param.getType()->isPointerTy()) {
           add_optimizer_attributes(first_param);
         }
       }
     };
-
-    Type* arg_types_cucorr_register[] = {Type::getInt8PtrTy(c), Type::getInt16Ty(c), Type::getInt8PtrTy(c)};
-    make_function(cucorr_register_access, FunctionType::get(Type::getVoidTy(c), arg_types_cucorr_register, false));
+    using ArgTypes                     = decltype(CucorrFunction::arg_types);
+    ArgTypes arg_types_cucorr_register = {Type::getInt8PtrTy(c), Type::getInt16Ty(c), Type::getInt8PtrTy(c)};
+    make_function(cucorr_register_access, arg_types_cucorr_register);
     // TODO address space?
-    Type* arg_types_cucorr_register_n[] = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
-                                           Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
-    make_function(cucorr_register_access_n, FunctionType::get(Type::getVoidTy(c), arg_types_cucorr_register_n, false));
+    ArgTypes arg_types_cucorr_register_n = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
+                                            Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
+    make_function(cucorr_register_access_n, arg_types_cucorr_register_n);
+
+    ArgTypes arg_types_sync_device = {};
+    make_function(cucorr_sync_device, arg_types_sync_device);
+
+    ArgTypes arg_types_sync_stream = {Type::getInt8PtrTy(c)};
+    make_function(cucorr_sync_stream, arg_types_sync_device);
+
+    ArgTypes arg_types_sync_event = {Type::getInt8PtrTy(c)};
+    make_function(cucorr_sync_event, arg_types_sync_event);
+    ArgTypes arg_types_event_record = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c)};
+    make_function(cucorr_sync_event, arg_types_sync_event);
   }
 };
 
@@ -79,6 +102,12 @@ struct FunctionDecl {
 namespace analysis {
 
 llvm::StringSet kCudaKernelInvokes{{"cudaLaunchKernel"}};
+
+llvm::StringSet kCudaDeviceSyncInvokes{{"cudaDeviceSynchronize"}};
+
+llvm::StringSet kCudaEventRecordInvokes{{"cudaEventRecord"}, {"cudaEventRecordWithFlags"}};
+
+llvm::StringSet kCudaEventSyncInvokes{{"cudaEventSynchronize"}};
 
 using KernelArgInfo = cucorr::FunctionArg;
 
@@ -103,7 +132,8 @@ struct CudaKernelInvokeCollector : public llvm::InstVisitor<CudaKernelInvokeColl
       if (kCudaKernelInvokes.contains(f->getName())) {
         auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
         auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
-        auto kernel_args            = extract_kernel_args_for(*cb.getFunction());
+        auto* cb_parent_function    = cb.getFunction();
+        auto kernel_args            = extract_kernel_args_for(*cb_parent_function);
         invokes_.emplace_back(KernelInvokeData{&cb, kernel_args, void_kernel_arg_array, cu_stream_handle});
       }
     }

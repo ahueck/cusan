@@ -66,18 +66,18 @@ class Runtime {
 
 }  // namespace cucorr::runtime
 
-void _cucorr_register_pointer(const void* ptr, short mode, const void* stream) {
+void _cucorr_kernel_register(const void* ptr, short mode, const void* stream) {
   cucorr::runtime::Runtime::get().emplace_pointer_access(ptr, mode);
 }
 
-void _cucorr_register_pointer_n(void*** ptr_array, short* modes, int n, const void* stream) {
+void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const void* stream) {
   for (int i = 0; i < n; ++i) {
     const auto mode = cucorr::runtime::access_cast_back(modes[i]);
     if (!mode.is_ptr) {
       continue;
     }
     size_t alloc_size{0};
-    auto ptr          = *ptr_array[i];
+    auto ptr          = *kernel_args[i];
     auto query_status = typeart_get_type_length(ptr, &alloc_size);
     if (query_status != TYPEART_OK) {
       LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
