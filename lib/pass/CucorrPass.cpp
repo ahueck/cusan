@@ -153,6 +153,27 @@ struct CudaKernelInvokeCollector : public llvm::InstVisitor<CudaKernelInvokeColl
   }
 };
 
+struct DeviceSyncInvokeData {
+  llvm::CallBase* call{nullptr};
+};
+
+using DeviceSyncInvokeDataVec = llvm::SmallVector<DeviceSyncInvokeData, 4>;
+
+struct CudaDeviceSyncInvokeCollector : public llvm::InstVisitor<CudaDeviceSyncInvokeCollector> {
+  DeviceSyncInvokeDataVec invokes_;
+
+  CudaDeviceSyncInvokeCollector() {
+  }
+
+  void visitCallBase(llvm::CallBase& cb) {
+    if (auto* f = cb.getCalledFunction()) {
+      if (kCudaDeviceSyncInvokes.contains(f->getName())) {
+        invokes_.emplace_back(DeviceSyncInvokeData{&cb});
+      }
+    }
+  }
+};
+
 }  // namespace analysis
 
 namespace transform {
@@ -254,11 +275,30 @@ struct KernelInvokeTransformer {
   }
 };
 
+struct CudaDeviceSyncInvokeTransformer {
+  Function* f_;
+  callback::FunctionDecl* decls_;
+
+  CudaDeviceSyncInvokeTransformer(Function* f, callback::FunctionDecl* decls) : f_(f), decls_(decls) {
+  }
+
+  bool handleSync(const analysis::DeviceSyncInvokeData& data) const {
+    using namespace llvm;
+    llvm::CallBase* call_inst = data.call;
+
+    IRBuilder<> irb(call_inst);
+    auto target_callback = decls_->cucorr_sync_device;
+    irb.CreateCall(target_callback.f);
+
+    return true;
+  }
+};
+
 }  // namespace transform
 
 class CucorrPass : public llvm::PassInfoMixin<CucorrPass> {
-  cucorr::ModelHandler kernel_models;
-  callback::FunctionDecl cucorr_decls;
+  cucorr::ModelHandler kernel_models_;
+  callback::FunctionDecl cucorr_decls_;
 
  public:
   llvm::PreservedAnalyses run(llvm::Module&, llvm::ModuleAnalysisManager&);
@@ -295,7 +335,7 @@ llvm::PreservedAnalyses CucorrPass::run(llvm::Module& module, llvm::ModuleAnalys
 }
 
 bool CucorrPass::runOnModule(llvm::Module& module) {
-  cucorr_decls.initialize(module);
+  cucorr_decls_.initialize(module);
   const auto kernel_models_file = [&]() {
     if (cl_cucorr_kernel_file.getNumOccurrences()) {
       return cl_cucorr_kernel_file.getValue();
@@ -315,14 +355,14 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
   }();
 
   LOG_DEBUG("Using model data file " << kernel_models_file)
-  const auto result       = io::load(this->kernel_models, kernel_models_file);
+  const auto result       = io::load(this->kernel_models_, kernel_models_file);
   const auto changed      = llvm::count_if(module.functions(), [&](auto& func) {
                          if (cuda::is_kernel(&func)) {
                            return runOnKernelFunc(func);
                          }
                          return runOnFunc(func);
                        }) > 1;
-  const auto store_result = io::store(this->kernel_models, kernel_models_file);
+  const auto store_result = io::store(this->kernel_models_, kernel_models_file);
   return changed;
 }
 
@@ -335,34 +375,44 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
     if (!cl_cucorr_quiet.getValue()) {
       LOG_DEBUG("[Device] Kernel data: " << data.value())
     }
-    this->kernel_models.insert(data.value());
+    this->kernel_models_.insert(data.value());
   }
 
   return false;
 }
 
 bool CucorrPass::runOnFunc(llvm::Function& function) {
-  auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models);
-  if (!data_for_host) {
-    return false;
+  bool modified      = false;
+  {
+    analysis::CudaDeviceSyncInvokeCollector visitor{};
+    visitor.visit(function);
+    const auto sync_invoke_data = visitor.invokes_;
+
+    if (!sync_invoke_data.empty()) {
+      transform::CudaDeviceSyncInvokeTransformer transformer{&function, &cucorr_decls_};
+      for (const auto& data : sync_invoke_data) {
+        modified |= transformer.handleSync(data);
+      }
+    }
   }
 
-  LOG_DEBUG("[Host] Kernel data: " << data_for_host.value())
+  auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
+  if (data_for_host) {
+    {
+      analysis::CudaKernelInvokeCollector visitor{data_for_host.value()};
+      visitor.visit(function);
+      const auto kernel_invoke_data = visitor.invokes_;
 
-  analysis::CudaKernelInvokeCollector visitor{data_for_host.value()};
-  visitor.visit(function);
-  const auto kernel_invoke_data = visitor.invokes_;
-
-  if (kernel_invoke_data.empty()) {
-    return false;
+      if (!kernel_invoke_data.empty()) {
+        transform::KernelInvokeTransformer transformer{&function, &cucorr_decls_};
+        for (const auto& data : kernel_invoke_data) {
+          modified |= transformer.handleReadWriteMapping(data);
+        }
+      }
+    }
   }
 
-  transform::KernelInvokeTransformer transformer{&function, &cucorr_decls};
-  for (const auto& data : kernel_invoke_data) {
-    transformer.handleReadWriteMapping(data);
-  }
-
-  return true;
+  return modified;
 }
 
 }  // namespace cucorr
