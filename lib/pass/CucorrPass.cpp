@@ -88,12 +88,12 @@ struct FunctionDecl {
     make_function(cucorr_sync_device, arg_types_sync_device);
 
     ArgTypes arg_types_sync_stream = {Type::getInt8PtrTy(c)};
-    make_function(cucorr_sync_stream, arg_types_sync_device);
+    make_function(cucorr_sync_stream, arg_types_sync_stream);
 
     ArgTypes arg_types_sync_event = {Type::getInt8PtrTy(c)};
     make_function(cucorr_sync_event, arg_types_sync_event);
     ArgTypes arg_types_event_record = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c)};
-    make_function(cucorr_sync_event, arg_types_sync_event);
+    make_function(cucorr_event_record, arg_types_event_record);
   }
 };
 
