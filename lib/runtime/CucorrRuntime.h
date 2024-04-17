@@ -12,6 +12,10 @@ extern "C" {
 #endif
 void _cucorr_kernel_register(const void* ptr, short mode, const void* stream);
 void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const void* stream);
+void _cucorr_sync_device();
+void _cucorr_event_record(const void* event, const void* stream);
+void _cucorr_sync_stream(const void* stream);
+void _cucorr_sync_event(const void* event);
 #ifdef __cplusplus
 }
 #endif

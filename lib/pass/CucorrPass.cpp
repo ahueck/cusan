@@ -28,6 +28,7 @@
 #include "llvm/Passes/PassPlugin.h"
 
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstIterator.h>
 
 using namespace llvm;
 
@@ -109,38 +110,37 @@ llvm::StringSet kCudaEventRecordInvokes{{"cudaEventRecord"}, {"cudaEventRecordWi
 
 llvm::StringSet kCudaEventSyncInvokes{{"cudaEventSynchronize"}};
 
+llvm::StringSet kCudaStreamSyncInvokes{{"cudaStreamSynchronize"}};
+
 using KernelArgInfo = cucorr::FunctionArg;
 
-struct KernelInvokeData {
-  llvm::CallBase* call{nullptr};
-  llvm::SmallVector<KernelArgInfo, 4> args{};
-  llvm::Value* void_arg_array{nullptr};
-  llvm::Value* cu_stream{nullptr};
-};
 
-using KernelInvokeDataVec = llvm::SmallVector<KernelInvokeData, 4>;
 
-struct CudaKernelInvokeCollector : public llvm::InstVisitor<CudaKernelInvokeCollector> {
-  KernelInvokeDataVec invokes_;
+struct CudaKernelInvokeCollector{
   KernelModel model;
+  struct KernelInvokeData{
+    llvm::SmallVector<KernelArgInfo, 4> args{};
+    llvm::Value* void_arg_array{nullptr};
+    llvm::Value* cu_stream{nullptr};
+  };
+  using Data = KernelInvokeData;
 
   CudaKernelInvokeCollector(const KernelModel& current_stub_model) : model(current_stub_model) {
   }
 
-  void visitCallBase(llvm::CallBase& cb) {
-    if (auto* f = cb.getCalledFunction()) {
-      if (kCudaKernelInvokes.contains(f->getName())) {
-        auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
-        auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
-        auto* cb_parent_function    = cb.getFunction();
-        auto kernel_args            = extract_kernel_args_for(*cb_parent_function);
-        invokes_.emplace_back(KernelInvokeData{&cb, kernel_args, void_kernel_arg_array, cu_stream_handle});
-      }
+  llvm::Optional<KernelInvokeData> match(llvm::CallBase& cb, Function& callee) const {
+    if (kCudaKernelInvokes.contains(callee.getName())) {
+      auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
+      auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
+      auto* cb_parent_function    = cb.getFunction();
+      auto kernel_args            = extract_kernel_args_for(*cb_parent_function);
+      return KernelInvokeData{kernel_args, void_kernel_arg_array, cu_stream_handle};
     }
+    return llvm::NoneType();
   }
 
  private:
-  llvm::SmallVector<KernelArgInfo, 4> extract_kernel_args_for(Function& stub) {
+  llvm::SmallVector<KernelArgInfo, 4> extract_kernel_args_for(Function& stub) const {
     llvm::SmallVector<KernelArgInfo, 4> arg_info;
     for (auto arg : llvm::enumerate(stub.args())) {
       const auto index = arg.index();
@@ -153,24 +153,70 @@ struct CudaKernelInvokeCollector : public llvm::InstVisitor<CudaKernelInvokeColl
   }
 };
 
-struct DeviceSyncInvokeData {
-  llvm::CallBase* call{nullptr};
+class DeviceSyncInvokeCollector {
+ public:
+  struct Data {};
+  llvm::Optional<Data> match(llvm::CallBase& cb, Function& callee) const {
+    if (kCudaDeviceSyncInvokes.contains(callee.getName())) {
+      return Data{};
+    }
+    return llvm::NoneType();
+  }
 };
 
-using DeviceSyncInvokeDataVec = llvm::SmallVector<DeviceSyncInvokeData, 4>;
-
-struct CudaDeviceSyncInvokeCollector : public llvm::InstVisitor<CudaDeviceSyncInvokeCollector> {
-  DeviceSyncInvokeDataVec invokes_;
-
-  CudaDeviceSyncInvokeCollector() {
-  }
-
-  void visitCallBase(llvm::CallBase& cb) {
-    if (auto* f = cb.getCalledFunction()) {
-      if (kCudaDeviceSyncInvokes.contains(f->getName())) {
-        invokes_.emplace_back(DeviceSyncInvokeData{&cb});
+class EventRecordCollector {
+ public:
+  struct Data {
+    llvm::Value* cu_event{nullptr};
+    llvm::Value* cu_stream{nullptr};
+    llvm::Optional<llvm::Value*> flags{nullptr};
+  };
+  llvm::Optional<Data> match(llvm::CallBase& cb, Function& callee) const {
+    if (kCudaEventRecordInvokes.contains(callee.getName())) {
+      llvm::Optional<llvm::Value*> flags = llvm::NoneType();
+      if(callee.arg_size() == 3){
+        flags = std::next(cb.arg_begin(), 2)->get();
       }
+      
+      return Data{
+        cb.arg_begin()->get(),  
+        std::next(cb.arg_begin())->get(),  
+        flags
+      };
     }
+    return llvm::NoneType();
+  }
+};
+
+
+
+class EventSynchronizeCollector {
+ public:
+  struct Data {
+    llvm::Value* cu_event{nullptr};
+  };
+  llvm::Optional<Data> match(llvm::CallBase& cb, Function& callee) const {
+    if (kCudaEventSyncInvokes.contains(callee.getName())) {
+      return Data{
+        cb.arg_begin()->get(),  
+      };
+    }
+    return llvm::NoneType();
+  }
+};
+
+class StreamSynchronizeCollector {
+ public:
+  struct Data {
+    llvm::Value* cu_stream{nullptr};
+  };
+  llvm::Optional<Data> match(llvm::CallBase& cb, Function& callee) const {
+    if (kCudaStreamSyncInvokes.contains(callee.getName())) {
+      return Data{
+        cb.arg_begin()->get(),  
+      };
+    }
+    return llvm::NoneType();
   }
 };
 
@@ -178,21 +224,59 @@ struct CudaDeviceSyncInvokeCollector : public llvm::InstVisitor<CudaDeviceSyncIn
 
 namespace transform {
 
+
+class StreamSynchronizeTransformer {
+ public:
+  callback::FunctionDecl* decls;
+  bool transform(const analysis::StreamSynchronizeCollector::Data& data, IRBuilder<>& irb) const {
+    auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(data.cu_stream, irb.getInt8PtrTy());
+    Value* args[] = {cu_stream_void_ptr};
+    irb.CreateCall(decls->cucorr_sync_stream.f, args);
+    return true;
+  }
+};
+
+class EventSynchronizeTransformer {
+ public:
+  callback::FunctionDecl* decls;
+  bool transform(const analysis::EventSynchronizeCollector::Data& data, IRBuilder<>& irb) const {
+    auto* cu_event_void_ptr = irb.CreateBitOrPointerCast(data.cu_event, irb.getInt8PtrTy());
+    Value* args[] = {cu_event_void_ptr};
+    irb.CreateCall(decls->cucorr_sync_event.f, args);
+    return true;
+  }
+};
+
+class EventRecordTransformer {
+ public:
+  callback::FunctionDecl* decls;
+  bool transform(const analysis::EventRecordCollector::Data& data, IRBuilder<>& irb) const {
+    // TODO: do we care about the flags
+    auto* cu_event_void_ptr = irb.CreateBitOrPointerCast(data.cu_event, irb.getInt8PtrTy());
+    auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(data.cu_stream, irb.getInt8PtrTy());
+    Value* args[] = {cu_event_void_ptr, cu_stream_void_ptr};
+    irb.CreateCall(decls->cucorr_event_record.f, args);
+    return true;
+  }
+};
+
+class DeviceSyncInvokeTransformer {
+ public:
+  callback::FunctionDecl* decls;
+  bool transform(const analysis::DeviceSyncInvokeCollector::Data&, IRBuilder<>& irb) const {
+    irb.CreateCall(decls->cucorr_sync_device.f);
+    return true;
+  }
+};
+
 struct KernelInvokeTransformer {
-  Function* f_;
   callback::FunctionDecl* decls_;
 
-  KernelInvokeTransformer(Function* f, callback::FunctionDecl* decls) : f_(f), decls_(decls) {
+  KernelInvokeTransformer(callback::FunctionDecl* decls) : decls_(decls) {
   }
 
-  bool handleReadWriteMapping(const analysis::KernelInvokeData& data) {
+  bool transform(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
     using namespace llvm;
-    const auto call_inst = data.call;
-    const bool is_invoke = llvm::isa<llvm::InvokeInst>(call_inst);
-
-    // normal callinst:
-    IRBuilder<> irb(call_inst);
-
     generate_compound_cb(data, irb);
     return generate_single_cb(data, irb);
   }
@@ -207,14 +291,14 @@ struct KernelInvokeTransformer {
     return value;
   }
 
-  llvm::Value* get_cu_stream_ptr(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+  llvm::Value* get_cu_stream_ptr(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
     auto cu_stream = data.cu_stream;
     assert(cu_stream != nullptr && "Require cuda stream!");
     auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(cu_stream, irb.getInt8PtrTy());
     return cu_stream_void_ptr;
   }
 
-  bool generate_compound_cb(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+  bool generate_compound_cb(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
     const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
 
     if (!should_transform) {
@@ -246,7 +330,7 @@ struct KernelInvokeTransformer {
     return true;
   }
 
-  bool generate_single_cb(const analysis::KernelInvokeData& data, IRBuilder<>& irb) const {
+  bool generate_single_cb(const analysis::CudaKernelInvokeCollector::KernelInvokeData& data, IRBuilder<>& irb) const {
     const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
 
     if (!should_transform) {
@@ -275,26 +359,48 @@ struct KernelInvokeTransformer {
   }
 };
 
-struct CudaDeviceSyncInvokeTransformer {
-  Function* f_;
-  callback::FunctionDecl* decls_;
+}  // namespace transform
 
-  CudaDeviceSyncInvokeTransformer(Function* f, callback::FunctionDecl* decls) : f_(f), decls_(decls) {
+
+template <class Collector, class Transformer>
+class CallInstrumenter {
+  Function& f_;
+  Collector collector_;
+  Transformer transformer_;
+  struct InstrumentationData {
+    typename Collector::Data user_data;
+    CallBase* cb;
+  };
+  llvm::SmallVector<InstrumentationData, 4> data_vec_;
+
+ public:
+  CallInstrumenter(Collector c, Transformer t, Function& f) : f_(f), collector_(c), transformer_(t) {
   }
 
-  bool handleSync(const analysis::DeviceSyncInvokeData& data) const {
-    using namespace llvm;
-    llvm::CallBase* call_inst = data.call;
+  bool instrument() {
+    for (inst_iterator I = inst_begin(f_), E = inst_end(f_); I != E; ++I) {
+      if (auto* cb = dyn_cast<CallBase>(&*I)) {
+        if (auto* f = cb->getCalledFunction()) {
+          auto t = collector_.match(*cb, *f);
+          if (t.hasValue()) {
+            data_vec_.push_back({t.getValue(), cb});
+          }
+        }
+      }
+    }
 
-    IRBuilder<> irb(call_inst);
-    auto target_callback = decls_->cucorr_sync_device;
-    irb.CreateCall(target_callback.f);
-
-    return true;
+    // iffy
+    bool modified = false;
+    if (data_vec_.size() > 0) {
+      IRBuilder<> irb{data_vec_[0].cb};
+      for (auto data : data_vec_) {
+        irb.SetInsertPoint(data.cb);
+        modified |= transformer_.transform(data.user_data, irb);
+      }
+    }
+    return modified;
   }
 };
-
-}  // namespace transform
 
 class CucorrPass : public llvm::PassInfoMixin<CucorrPass> {
   cucorr::ModelHandler kernel_models_;
@@ -382,34 +488,24 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
 }
 
 bool CucorrPass::runOnFunc(llvm::Function& function) {
-  bool modified      = false;
-  {
-    analysis::CudaDeviceSyncInvokeCollector visitor{};
-    visitor.visit(function);
-    const auto sync_invoke_data = visitor.invokes_;
-
-    if (!sync_invoke_data.empty()) {
-      transform::CudaDeviceSyncInvokeTransformer transformer{&function, &cucorr_decls_};
-      for (const auto& data : sync_invoke_data) {
-        modified |= transformer.handleSync(data);
-      }
-    }
-  }
-
+  bool modified = false;
+  CallInstrumenter(analysis::DeviceSyncInvokeCollector{}, transform::DeviceSyncInvokeTransformer{&cucorr_decls_},
+                   function)
+      .instrument();
+  CallInstrumenter(analysis::EventRecordCollector{}, transform::EventRecordTransformer{&cucorr_decls_},
+                   function)
+      .instrument();
+  CallInstrumenter(analysis::EventSynchronizeCollector{}, transform::EventSynchronizeTransformer{&cucorr_decls_},
+                   function)
+      .instrument();
+  CallInstrumenter(analysis::StreamSynchronizeCollector{}, transform::StreamSynchronizeTransformer{&cucorr_decls_},
+                   function)
+      .instrument();
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
-    {
-      analysis::CudaKernelInvokeCollector visitor{data_for_host.value()};
-      visitor.visit(function);
-      const auto kernel_invoke_data = visitor.invokes_;
-
-      if (!kernel_invoke_data.empty()) {
-        transform::KernelInvokeTransformer transformer{&function, &cucorr_decls_};
-        for (const auto& data : kernel_invoke_data) {
-          modified |= transformer.handleReadWriteMapping(data);
-        }
-      }
-    }
+    CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},
+                     transform::KernelInvokeTransformer{&cucorr_decls_}, function)
+        .instrument();
   }
 
   return modified;

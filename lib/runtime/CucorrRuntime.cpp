@@ -86,3 +86,16 @@ void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const v
     LOG_DEBUG(ptr << " with length " << alloc_size << " and mode " << cucorr::access_state_string(mode.state))
   }
 }
+
+void _cucorr_sync_device(){
+    LOG_DEBUG("SyncDevice");
+}
+void _cucorr_event_record(const void* event, const void* stream){
+    LOG_DEBUG("EventRecord");
+}
+void _cucorr_sync_stream(const void* stream){
+    LOG_DEBUG("SyncStream");
+}
+void _cucorr_sync_event(const void* event){
+    LOG_DEBUG("SyncEvent");
+}
