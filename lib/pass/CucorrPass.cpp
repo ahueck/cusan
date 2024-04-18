@@ -378,8 +378,8 @@ class CallInstrumenter {
   }
 
   bool instrument() {
-    for (inst_iterator I = inst_begin(f_), E = inst_end(f_); I != E; ++I) {
-      if (auto* cb = dyn_cast<CallBase>(&*I)) {
+    for (auto& I: instructions(f_)) {
+      if (auto* cb = dyn_cast<CallBase>(&I)) {
         if (auto* f = cb->getCalledFunction()) {
           auto t = collector_.match(*cb, *f);
           if (t.hasValue()) {
@@ -389,7 +389,6 @@ class CallInstrumenter {
       }
     }
 
-    // iffy
     bool modified = false;
     if (data_vec_.size() > 0) {
       IRBuilder<> irb{data_vec_[0].cb};
