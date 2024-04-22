@@ -248,16 +248,23 @@ struct KernelInvokeTransformer {
 
 template <class T>
 class SimpleInstrumenter {
+  enum class InsertLocation {
+    // insert before or after the call that were instrumenting
+    kBefore,
+    kAfter
+  };
+
   const llvm::FunctionCallee* callee_;
   llvm::StringRef func_name_;
   llvm::SmallVector<llvm::CallBase*, 4> target_callsites_;
-public:
+
+ public:
   void setup(llvm::StringRef name, FunctionCallee* callee) {
     func_name_ = name;
     callee_    = callee;
   }
 
-  bool instrument(Function& func) {
+  bool instrument(Function& func, InsertLocation loc = InsertLocation::kAfter) {
     for (auto& I : instructions(func)) {
       if (auto* cb = dyn_cast<CallBase>(&I)) {
         if (auto* f = cb->getCalledFunction()) {
@@ -271,7 +278,15 @@ public:
     if (!target_callsites_.empty()) {
       IRBuilder<> irb{target_callsites_[0]};
       for (llvm::CallBase* cb : target_callsites_) {
-        irb.SetInsertPoint(cb);
+        if (loc == InsertLocation::kBefore) {
+          irb.SetInsertPoint(cb);
+        } else {
+          if (Instruction* insert_instruction = cb->getNextNonDebugInstruction()) {
+            irb.SetInsertPoint(insert_instruction);
+          } else {
+            irb.SetInsertPoint(cb->getParent());
+          }
+        }
         if (!cb->arg_empty()) {
           llvm::SmallVector<llvm::Value*> v;
           for (auto& arg : cb->args()) {
