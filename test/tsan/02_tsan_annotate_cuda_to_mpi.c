@@ -21,7 +21,7 @@
 #define MUST_DEBUG 1
 #include "TSan_External.h"
 
-__global__ void kernel(int* arr, const int N) {
+__global__ void kernel(int* arr, const int N) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
 #if __CUDA_ARCH__ >= 700
@@ -60,31 +60,10 @@ int main(int argc, char* argv[]) {
   cudaMalloc(&d_data, size * sizeof(int));
 
   if (world_rank == 0) {
-    // get main fiber, create CUDA fiber
-    int dummy;
-    void* mycurrfiber = __tsan_get_current_fiber();
-    void* mycudafiber = __tsan_create_fiber(0);
-    __tsan_set_fiber_name(mycudafiber, "CUDA");
-
-    // switch to fiber *with* synchronization
-    __tsan_switch_to_fiber(mycudafiber, 0);
-
-    // actual kernel call
     kernel<<<blocksPerGrid, threadsPerBlock>>>(d_data, size);
-
-    // assume worst case: memory write to d_data of "size"
-    TsanMemoryWrite(d_data, size * sizeof(int));  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
-
-    // write in sync clock for later synchronization
-    TsanHappensBefore(&dummy);  // release
-
-    // switch to main fiber *without* synchronization, since the CUDA memory access is ongoing
-    __tsan_switch_to_fiber(mycurrfiber, 1);
 
 #ifdef CUCORR_SYNC
     cudaDeviceSynchronize();  // FIXME: uncomment for correct execution
-    // if we synchronize with cudaDeviceSynchronize, we can be sure that the CUDA memory access is completed here
-    TsanHappensAfter(&dummy);  // aquire
 #endif
 
     MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);

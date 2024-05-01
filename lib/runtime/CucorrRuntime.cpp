@@ -9,8 +9,11 @@
 #include "RuntimeInterface.h"
 #include "analysis/KernelModel.h"
 #include "support/Logger.h"
+#include "TSan_External.h"
 
 #include <iostream>
+// #include <llvm/Support/Compiler.h>
+#include <llvm/Support/Compiler.h>
 #include <map>
 
 namespace cucorr::runtime {
@@ -32,11 +35,22 @@ struct PointerAccess {
 };
 
 class Runtime {
-  std::map<const void*, PointerAccess> access_map;
+  std::map<const void*, PointerAccess> access_map_;
+  std::map<const void*, void*> streams_;
+  // std::map<const void*, void*> events_;
+  void* cpu_fiber_;
+  void* curr_fiber_;
+  bool init_ = false;
+
 
  public:
   static Runtime& get() {
     static Runtime run_t;
+    if (!run_t.init_){
+      run_t.cpu_fiber_ = TsanGetCurrentFiber();
+      run_t.curr_fiber_ = run_t.cpu_fiber_;
+      run_t.init_ = true;
+    }
     return run_t;
   }
 
@@ -51,13 +65,55 @@ class Runtime {
     if (query_status != TYPEART_OK) {
       LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
     }
-    const auto emplace_token = access_map.emplace(ptr, PointerAccess{alloc_size, mode.state});
+    const auto emplace_token = access_map_.emplace(ptr, PointerAccess{alloc_size, mode.state});
     if (emplace_token.second) {
       LOG_TRACE(emplace_token.first->first << " of size=" << alloc_size
                                            << " with access=" << access_state_string(emplace_token.first->second.mode))
     }
   }
 
+  void happens_before(){
+    TsanHappensBefore(curr_fiber_);
+  }
+
+  void switch_to_cpu(){
+    // without synchronization
+    TsanSwitchToFiber(cpu_fiber_, 1);
+    curr_fiber_ = cpu_fiber_;
+  }
+
+  void switch_to_stream(const void* stream){
+    void* fiber;
+    auto search_result = streams_.find(stream);
+    if (search_result != streams_.end()){
+      fiber = search_result->second;
+    }else{
+      fiber = TsanCreateFiber(0);
+      TsanSetFiberName(fiber, "cuda_stream");
+      streams_.insert({stream, fiber});
+    }
+    TsanSwitchToFiber(fiber, 0);
+    curr_fiber_ = fiber;
+  }
+
+  void happens_after_all_streams(){
+    for(auto [_, fiber]: streams_){
+      TsanHappensAfter(fiber);
+    }
+  }
+
+  void happens_after_stream(const void* stream){
+    void* fiber;
+    auto search_result = streams_.find(stream);
+    if (search_result != streams_.end()){
+      fiber = search_result->second;
+    }else{
+      fiber = TsanCreateFiber(0);
+      TsanSetFiberName(fiber, "cuda_stream");
+      streams_.insert({stream, fiber});
+    }
+    TsanHappensAfter(fiber);
+  }
  private:
   Runtime() = default;
 
@@ -71,6 +127,8 @@ void _cucorr_kernel_register(const void* ptr, short mode, const void* stream) {
 }
 
 void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const void* stream) {
+  auto& runtime = cucorr::runtime::Runtime::get();
+  runtime.switch_to_stream(stream);
   for (int i = 0; i < n; ++i) {
     const auto mode = cucorr::runtime::access_cast_back(modes[i]);
     if (!mode.is_ptr) {
@@ -83,17 +141,30 @@ void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const v
       LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
       continue;
     }
+    if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten){
+      TsanMemoryWritePC(ptr, alloc_size, __builtin_return_address(0));
+      // TsanMemoryWrite(ptr, alloc_size);
+    }else if (mode.state == cucorr::AccessState::kRead){
+      TsanMemoryReadPC(ptr, alloc_size, __builtin_return_address(0));
+      // TsanMemoryRead(ptr, alloc_size);
+    }
     LOG_DEBUG(ptr << " with length " << alloc_size << " and mode " << cucorr::access_state_string(mode.state))
   }
+  runtime.happens_before();
+  runtime.switch_to_cpu();
 }
 
 void _cucorr_sync_device(){
+    auto& runtime = cucorr::runtime::Runtime::get();
+    runtime.happens_after_all_streams();
     LOG_DEBUG("SyncDevice");
 }
 void _cucorr_event_record(const void* event, const void* stream){
     LOG_DEBUG("EventRecord");
 }
 void _cucorr_sync_stream(const void* stream){
+    auto& runtime = cucorr::runtime::Runtime::get();
+    runtime.happens_after_stream(stream);
     LOG_DEBUG("SyncStream");
 }
 void _cucorr_sync_event(const void* event){
