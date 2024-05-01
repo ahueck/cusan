@@ -37,7 +37,7 @@ struct PointerAccess {
 class Runtime {
   std::map<const void*, PointerAccess> access_map_;
   std::map<const void*, void*> streams_;
-  // std::map<const void*, void*> events_;
+  std::map<const void*, const void*> events_;
   void* cpu_fiber_;
   void* curr_fiber_;
   bool init_ = false;
@@ -114,6 +114,18 @@ class Runtime {
     }
     TsanHappensAfter(fiber);
   }
+
+  
+  void record_event(const void* event, const void* stream){
+    events_[event] = stream;
+  }
+
+  void sync_event(const void* event){
+    if (events_.find(event) != events_.end()){
+      happens_after_stream(events_[event]);
+    }
+  }
+
  private:
   Runtime() = default;
 
@@ -160,6 +172,7 @@ void _cucorr_sync_device(){
     LOG_DEBUG("SyncDevice");
 }
 void _cucorr_event_record(const void* event, const void* stream){
+    cucorr::runtime::Runtime::get().record_event(event, stream);
     LOG_DEBUG("EventRecord");
 }
 void _cucorr_sync_stream(const void* stream){
@@ -168,5 +181,6 @@ void _cucorr_sync_stream(const void* stream){
     LOG_DEBUG("SyncStream");
 }
 void _cucorr_sync_event(const void* event){
+    cucorr::runtime::Runtime::get().sync_event(event);
     LOG_DEBUG("SyncEvent");
 }
