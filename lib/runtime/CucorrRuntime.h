@@ -16,6 +16,9 @@ void _cucorr_sync_device();
 void _cucorr_event_record(const void* event, const void* stream);
 void _cucorr_sync_stream(const void* stream);
 void _cucorr_sync_event(const void* event);
+void _cucorr_stream_event(const void* event);
+void _cucorr_create_event(const void** event);
+void _cucorr_create_stream(const void** stream);
 #ifdef __cplusplus
 }
 #endif

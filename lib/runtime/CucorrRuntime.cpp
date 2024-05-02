@@ -16,7 +16,13 @@
 #include <llvm/Support/Compiler.h>
 #include <map>
 
+
 namespace cucorr::runtime {
+  
+#define CUDA_DEFAULT_STREAM (CudaStream)nullptr
+using CudaStream = const void*;
+using TsanFiber = void*;
+using CudaEvent = const void*;
 
 struct PtrAttribute {
   AccessState state{AccessState::kRW};
@@ -35,11 +41,10 @@ struct PointerAccess {
 };
 
 class Runtime {
-  std::map<const void*, PointerAccess> access_map_;
-  std::map<const void*, void*> streams_;
-  std::map<const void*, const void*> events_;
-  void* cpu_fiber_;
-  void* curr_fiber_;
+  std::map<CudaStream, TsanFiber> streams_;
+  std::map<CudaEvent, CudaStream> events_;
+  TsanFiber cpu_fiber_;
+  TsanFiber curr_fiber_;
   bool init_ = false;
 
 
@@ -49,6 +54,12 @@ class Runtime {
     if (!run_t.init_){
       run_t.cpu_fiber_ = TsanGetCurrentFiber();
       run_t.curr_fiber_ = run_t.cpu_fiber_;
+
+      //default '0' cuda stream
+      {
+        run_t.register_stream(CUDA_DEFAULT_STREAM); 
+      }
+      
       run_t.init_ = true;
     }
     return run_t;
@@ -57,20 +68,6 @@ class Runtime {
   Runtime(const Runtime&) = delete;
 
   void operator=(const Runtime&) = delete;
-
-  void emplace_pointer_access(const void* ptr, short attribute) {
-    size_t alloc_size{0};
-    const auto mode   = access_cast_back(attribute);
-    auto query_status = typeart_get_type_length(ptr, &alloc_size);
-    if (query_status != TYPEART_OK) {
-      LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
-    }
-    const auto emplace_token = access_map_.emplace(ptr, PointerAccess{alloc_size, mode.state});
-    if (emplace_token.second) {
-      LOG_TRACE(emplace_token.first->first << " of size=" << alloc_size
-                                           << " with access=" << access_state_string(emplace_token.first->second.mode))
-    }
-  }
 
   void happens_before(){
     TsanHappensBefore(curr_fiber_);
@@ -82,18 +79,19 @@ class Runtime {
     curr_fiber_ = cpu_fiber_;
   }
 
-  void switch_to_stream(const void* stream){
-    void* fiber;
+  void register_stream(CudaStream stream){
     auto search_result = streams_.find(stream);
-    if (search_result != streams_.end()){
-      fiber = search_result->second;
-    }else{
-      fiber = TsanCreateFiber(0);
-      TsanSetFiberName(fiber, "cuda_stream");
-      streams_.insert({stream, fiber});
-    }
-    TsanSwitchToFiber(fiber, 0);
-    curr_fiber_ = fiber;
+    assert(search_result == streams_.end() && "Registered stream twice");
+    TsanFiber fiber = TsanCreateFiber(0);
+    TsanSetFiberName(fiber, "cuda_stream");
+    streams_.insert({stream, fiber});
+  }
+
+  void switch_to_stream(CudaStream stream){
+    auto search_result = streams_.find(stream);
+    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    TsanSwitchToFiber(search_result->second, 0);
+    curr_fiber_ = search_result->second;
   }
 
   void happens_after_all_streams(){
@@ -102,28 +100,21 @@ class Runtime {
     }
   }
 
-  void happens_after_stream(const void* stream){
-    void* fiber;
+  void happens_after_stream(CudaStream stream){
     auto search_result = streams_.find(stream);
-    if (search_result != streams_.end()){
-      fiber = search_result->second;
-    }else{
-      fiber = TsanCreateFiber(0);
-      TsanSetFiberName(fiber, "cuda_stream");
-      streams_.insert({stream, fiber});
-    }
-    TsanHappensAfter(fiber);
+    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    TsanHappensAfter(search_result->second);
   }
 
   
-  void record_event(const void* event, const void* stream){
+  void record_event(CudaEvent event, CudaStream stream){
     events_[event] = stream;
   }
 
-  void sync_event(const void* event){
-    if (events_.find(event) != events_.end()){
-      happens_after_stream(events_[event]);
-    }
+  void sync_event(CudaEvent event){
+    auto search_result = events_.find(event);
+    assert(search_result != events_.end() && "Tried using event that wasnt registered prior");
+    happens_after_stream(events_[event]);
   }
 
  private:
@@ -134,12 +125,13 @@ class Runtime {
 
 }  // namespace cucorr::runtime
 
-void _cucorr_kernel_register(const void* ptr, short mode, const void* stream) {
-  cucorr::runtime::Runtime::get().emplace_pointer_access(ptr, mode);
+using namespace cucorr::runtime;
+
+void _cucorr_kernel_register(const void* ptr, short mode, CudaStream stream) {
 }
 
-void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const void* stream) {
-  auto& runtime = cucorr::runtime::Runtime::get();
+void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, CudaStream stream) {
+  auto& runtime = Runtime::get();
   runtime.switch_to_stream(stream);
   for (int i = 0; i < n; ++i) {
     const auto mode = cucorr::runtime::access_cast_back(modes[i]);
@@ -160,27 +152,33 @@ void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const v
       TsanMemoryReadPC(ptr, alloc_size, __builtin_return_address(0));
       // TsanMemoryRead(ptr, alloc_size);
     }
-    LOG_DEBUG(ptr << " with length " << alloc_size << " and mode " << cucorr::access_state_string(mode.state))
   }
   runtime.happens_before();
   runtime.switch_to_cpu();
 }
 
 void _cucorr_sync_device(){
-    auto& runtime = cucorr::runtime::Runtime::get();
+    auto& runtime = Runtime::get();
     runtime.happens_after_all_streams();
     LOG_DEBUG("SyncDevice");
 }
-void _cucorr_event_record(const void* event, const void* stream){
-    cucorr::runtime::Runtime::get().record_event(event, stream);
+void _cucorr_event_record(CudaEvent event, CudaStream stream){
+    Runtime::get().record_event(event, stream);
     LOG_DEBUG("EventRecord");
 }
-void _cucorr_sync_stream(const void* stream){
-    auto& runtime = cucorr::runtime::Runtime::get();
+void _cucorr_sync_stream(CudaStream stream){
+    auto& runtime = Runtime::get();
     runtime.happens_after_stream(stream);
     LOG_DEBUG("SyncStream");
 }
-void _cucorr_sync_event(const void* event){
-    cucorr::runtime::Runtime::get().sync_event(event);
+void _cucorr_sync_event(CudaEvent event){
+    Runtime::get().sync_event(event);
     LOG_DEBUG("SyncEvent");
+}
+void _cucorr_create_event(CudaEvent*){
+    LOG_DEBUG("CreateEvent");
+}
+void _cucorr_create_stream(CudaStream* stream){
+    Runtime::get().register_stream(*stream);
+    LOG_DEBUG("CreateEvent");
 }

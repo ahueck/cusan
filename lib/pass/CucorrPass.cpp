@@ -51,6 +51,8 @@ struct FunctionDecl {
   CucorrFunction cucorr_sync_device{"_cucorr_sync_device"};
   CucorrFunction cucorr_sync_stream{"_cucorr_sync_stream"};
   CucorrFunction cucorr_sync_event{"_cucorr_sync_event"};
+  CucorrFunction cucorr_event_create{"_cucorr_create_event"};
+  CucorrFunction cucorr_stream_create{"_cucorr_create_stream"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -96,6 +98,12 @@ struct FunctionDecl {
     make_function(cucorr_sync_event, arg_types_sync_event);
     ArgTypes arg_types_event_record = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c)};
     make_function(cucorr_event_record, arg_types_event_record);
+
+    ArgTypes arg_types_event_create = {Type::getInt8PtrTy(c)};
+    make_function(cucorr_event_create, arg_types_event_create);
+
+    ArgTypes arg_types_stream_create = {Type::getInt8PtrTy(c)};
+    make_function(cucorr_stream_create, arg_types_stream_create);
   }
 };
 
@@ -281,6 +289,7 @@ class SimpleInstrumenter {
         if (loc == InsertLocation::kBefore) {
           irb.SetInsertPoint(cb);
         } else {
+          //NOTE: this only needed if it can be the last instruction which in our case cant be the case since we only check callbases and assume corerct llvmir before?
           if (Instruction* insert_instruction = cb->getNextNonDebugInstruction()) {
             irb.SetInsertPoint(insert_instruction);
           } else {
@@ -358,6 +367,33 @@ class EventRecordFlagsInstrumenter : public SimpleInstrumenter<EventRecordFlagsI
     return {cu_event_void_ptr, cu_stream_void_ptr};
   }
 };
+
+
+class EventCreateInstrumenter : public SimpleInstrumenter<EventCreateInstrumenter> {
+ public:
+  EventCreateInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaEventCreate", &decls->cucorr_event_create.f);
+  }
+  static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    assert(args.size() == 1);
+    // auto* cu_event_void_ptr = irb.CreateLoad(irb.getInt8PtrTy(), args[0], "");
+    auto* cu_event_void_ptr_ptr  = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    return {cu_event_void_ptr_ptr};
+  }
+};
+class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumenter> {
+ public:
+  StreamCreateInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaStreamCreate", &decls->cucorr_stream_create.f);
+  }
+  static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    assert(args.size() == 1);
+    // auto* cu_stream_void_ptr = irb.CreateLoad(irb.getInt8PtrTy(), args[0], "");
+    auto* cu_stream_void_ptr_ptr  = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    return {cu_stream_void_ptr_ptr};
+  }
+};
+
 }  // namespace transform
 
 template <class Collector, class Transformer>
@@ -491,6 +527,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::EventSyncInstrumenter(&cucorr_decls_).instrument(function);
   transform::EventRecordInstrumenter(&cucorr_decls_).instrument(function);
   transform::EventRecordFlagsInstrumenter(&cucorr_decls_).instrument(function);
+  transform::EventCreateInstrumenter(&cucorr_decls_).instrument(function);
+  transform::StreamCreateInstrumenter(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},
