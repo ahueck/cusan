@@ -129,7 +129,7 @@ void __attribute__((weak)) __tsan_write8_pc(void* addr, void* pc) {
     size -= s;                                                           \
   }
 
-void __attribute__((weak)) __tsan_read_range_pc(void* a, uptr size, void* pc) {
+void __attribute__((weak)) __tsan_read_range_pc(const void* a, uptr size, void* pc) {
   char* addr = (char*)a;
   uptr len   = ((uptr)addr) % 8;
   if (size < len)

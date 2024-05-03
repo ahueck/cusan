@@ -15,6 +15,13 @@
 
 __global__ void kernel(int* data) {
   int tid   = threadIdx.x + blockIdx.x * blockDim.x;
+#if __CUDA_ARCH__ >= 700
+    for (int i = 0; i < tid; i++) {
+      __nanosleep(1000000U);
+    }
+#else
+    printf(">>> __CUDA_ARCH__ !\n");
+#endif
   data[tid] = (tid + 1);
 }
 
@@ -27,6 +34,7 @@ int main() {
 
   // Allocate Unified Memory
   cudaMallocManaged(&d_data, size * sizeof(int));
+  cudaMemset ( d_data, 0, size * sizeof(int) );
 
   cudaEvent_t endEvent;
   cudaEventCreate(&endEvent);
@@ -42,7 +50,7 @@ int main() {
     if (d_data[i] < 1) {
       printf("[Error] sync\n");
     }
-    //      printf("d_data[%d] = %d\n", i, d_data[i]);
+    // printf("d_data[%d] = %d\n", i, d_data[i]);
   }
 
   cudaEventDestroy(endEvent);

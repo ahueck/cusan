@@ -89,6 +89,7 @@ endfunction()
 
 set(CUCORR_TEST_DEPENDS
   cucorr::TransformPass
+  cucorr::MPI_Interceptor
   cucorr::Runtime
   cucorr::Analysis
   typeart::Runtime

@@ -66,14 +66,10 @@ int main(int argc, char* argv[]) {
     cudaDeviceSynchronize();  // FIXME: uncomment for correct execution
 #endif
 
-    MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);
-    // annotate local buffer read of MPI_Send as memory read in main thread
-    TsanMemoryRead(d_data, size * sizeof(int));  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+    MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
 
   } else if (world_rank == 1) {
     MPI_Recv(d_data, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // annotate local buffer write of MPI_Recv as memory write in main thread
-    TsanMemoryWrite(d_data, size * sizeof(int));
   }
 
   if (world_rank == 1) {

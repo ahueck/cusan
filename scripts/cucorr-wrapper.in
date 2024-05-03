@@ -69,7 +69,8 @@ function cucorr_global_init_fn() {
 
   readonly cucorr_ldflags="-L${cucorr_lib_dir}/ \
                    -Wl,-rpath,${cucorr_lib_dir}/ \
-                   -l$<TARGET_FILE_BASE_NAME:cucorr::Runtime>"
+                   -l$<TARGET_FILE_BASE_NAME:cucorr::Runtime>
+                   -l$<TARGET_FILE_BASE_NAME:cucorr::MPI_Interceptor>"
 
   readonly cucorr_includes="${cucorr_include_dir}"
   readonly cucorr_plugin="-load "${cucorr_pass}" -cucorr"

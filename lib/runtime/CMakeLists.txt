@@ -1,3 +1,43 @@
+find_package(MPI)
+add_library(cucorr_mpi_interceptor SHARED MPIInterception.cpp)
+target_link_libraries(cucorr_mpi_interceptor
+  PRIVATE MPI::MPI_CXX
+)
+set_target_properties(
+  cucorr_mpi_interceptor
+  PROPERTIES
+  OUTPUT_NAME "CucorrMPIInterceptor"
+  EXPORT_NAME "MPIInterceptor"
+)
+add_library(cucorr::MPI_Interceptor ALIAS cucorr_mpi_interceptor)
+target_compile_features(cucorr_mpi_interceptor PUBLIC cxx_std_17)
+
+set(CONFIG_NAME cucorrMPIInterceptor)
+set(TARGETS_EXPORT_NAME ${CONFIG_NAME}Targets)
+
+install(
+  TARGETS cucorr_mpi_interceptor
+  EXPORT ${TARGETS_EXPORT_NAME}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(
+  EXPORT ${TARGETS_EXPORT_NAME}
+  NAMESPACE cucorr::
+  DESTINATION ${CUCORR_INSTALL_CONFIGDIR}
+)
+
+export(
+  EXPORT ${TARGETS_EXPORT_NAME}
+  FILE ${CMAKE_BINARY_DIR}/${TARGETS_EXPORT_NAME}.cmake
+  NAMESPACE cucorr::
+)
+
+
+
+
+
 add_library(cucorr_Runtime SHARED CucorrRuntime.cpp)
 set_target_properties(
   cucorr_Runtime
