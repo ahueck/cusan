@@ -44,7 +44,6 @@ struct CucorrFunction {
 
 struct FunctionDecl {
   CucorrFunction cucorr_register_access{"_cucorr_kernel_register"};
-  CucorrFunction cucorr_register_access_n{"_cucorr_kernel_register_n"};
 
   CucorrFunction cucorr_event_record{"_cucorr_event_record"};
 
@@ -81,12 +80,10 @@ struct FunctionDecl {
       }
     };
     using ArgTypes                     = decltype(CucorrFunction::arg_types);
-    ArgTypes arg_types_cucorr_register = {Type::getInt8PtrTy(c), Type::getInt16Ty(c), Type::getInt8PtrTy(c)};
-    make_function(cucorr_register_access, arg_types_cucorr_register);
     // TODO address space?
-    ArgTypes arg_types_cucorr_register_n = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
+    ArgTypes arg_types_cucorr_register = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
                                             Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
-    make_function(cucorr_register_access_n, arg_types_cucorr_register_n);
+    make_function(cucorr_register_access, arg_types_cucorr_register);
 
     ArgTypes arg_types_sync_device = {};
     make_function(cucorr_sync_device, arg_types_sync_device);
@@ -172,13 +169,12 @@ struct KernelInvokeTransformer {
 
   bool transform(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
     using namespace llvm;
-    generate_compound_cb(data, irb);
-    return generate_single_cb(data, irb);
+    return generate_compound_cb(data, irb);
   }
 
  private:
-  short access_cast(AccessState access, bool is_ptr) const {
-    short value = static_cast<short>(access);
+  static short access_cast(AccessState access, bool is_ptr)  {
+    auto value = static_cast<short>(access);
     value <<= 1;
     if (is_ptr) {
       value |= 1;
@@ -186,7 +182,7 @@ struct KernelInvokeTransformer {
     return value;
   }
 
-  llvm::Value* get_cu_stream_ptr(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
+  static llvm::Value* get_cu_stream_ptr(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb)  {
     auto cu_stream = data.cu_stream;
     assert(cu_stream != nullptr && "Require cuda stream!");
     auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(cu_stream, irb.getInt8PtrTy());
@@ -200,7 +196,7 @@ struct KernelInvokeTransformer {
       return false;
     }
 
-    auto target_callback = decls_->cucorr_register_access_n;
+    auto target_callback = decls_->cucorr_register_access;
 
     auto i16_ty = Type::getInt16Ty(irb.getContext());
     auto i32_ty = Type::getInt32Ty(irb.getContext());
@@ -222,34 +218,6 @@ struct KernelInvokeTransformer {
     Value* args_cucorr_register[] = {void_ptr_array_cast, arg_access_array, arg_size, cu_stream_void_ptr};
     irb.CreateCall(target_callback.f, args_cucorr_register);
 
-    return true;
-  }
-
-  bool generate_single_cb(const analysis::CudaKernelInvokeCollector::KernelInvokeData& data, IRBuilder<>& irb) const {
-    const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
-
-    if (!should_transform) {
-      return false;
-    }
-
-    auto target_callback    = decls_->cucorr_register_access;
-    auto cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
-    for (const auto& arg : data.args) {
-      if (arg.is_pointer) {
-        auto* pointer     = const_cast<Value*>(dyn_cast<Value>(arg.arg.getValue()));
-        auto* void_ptr    = irb.CreateBitOrPointerCast(pointer, irb.getInt8PtrTy());
-        const auto access = access_cast(arg.state, arg.is_pointer);
-
-        if (access == static_cast<short>(AccessState::kNone)) {
-          continue;
-        }
-        auto const_access_val = irb.getInt16(access);
-        //        LOG_DEBUG("Insert " << *void_ptr << " access " << *const_access_val << " and stream " <<
-        //        *cu_stream_void_ptr)
-        Value* args_cucorr_register[] = {void_ptr, const_access_val, cu_stream_void_ptr};
-        irb.CreateCall(target_callback.f, args_cucorr_register);
-      }
-    }
     return true;
   }
 };

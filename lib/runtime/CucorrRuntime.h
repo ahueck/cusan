@@ -7,18 +7,29 @@
 #ifndef LIB_RUNTIME_CUCORR_H_
 #define LIB_RUNTIME_CUCORR_H_
 
+
+
+namespace cucorr::runtime {
+  using TsanFiber = void*;
+  using Event = const void*;
+  using RawStream = const void*;
+}
+
+using cucorr::runtime::TsanFiber;
+using cucorr::runtime::Event;
+using cucorr::runtime::RawStream;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-void _cucorr_kernel_register(const void* ptr, short mode, const void* stream);
-void _cucorr_kernel_register_n(void*** kernel_args, short* modes, int n, const void* stream);
+void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream stream);
 void _cucorr_sync_device();
-void _cucorr_event_record(const void* event, const void* stream);
-void _cucorr_sync_stream(const void* stream);
-void _cucorr_sync_event(const void* event);
-void _cucorr_stream_event(const void* event);
-void _cucorr_create_event(const void** event);
-void _cucorr_create_stream(const void** stream);
+void _cucorr_event_record(Event event, RawStream stream);
+void _cucorr_sync_stream(RawStream stream);
+void _cucorr_sync_event(Event event);
+void _cucorr_stream_event(Event event);
+void _cucorr_create_event(RawStream* event);
+void _cucorr_create_stream(RawStream* stream);
 #ifdef __cplusplus
 }
 #endif
