@@ -4,9 +4,18 @@
 
 // RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
 // RUN: %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck --allow-empty %s
+
+// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 // clang-format on
 
 // CHECK-NOT: [Error] sync
+
+
+// CHECK-LLVM-IR: cudaDeviceSynchronize 
+// CHECK-LLVM-IR: _cucorr_sync_device 
+
+// CHECK-LLVM-IR: cudaDeviceSynchronize 
+// CHECK-LLVM-IR: _cucorr_sync_device 
 
 #include "../support/gpu_mpi.h"
 

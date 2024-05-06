@@ -3,6 +3,10 @@
 // CHECK: TypeArtPass [Heap]
 // CHECK-NEXT: Malloc :   2
 
+
+// CHECK: cudaDeviceSynchronize 
+// CHECK: _cucorr_sync_device 
+
 #include <stdio.h>
 __device__ void axpy_write(float a, float* y) {
   y[threadIdx.x] = a;
