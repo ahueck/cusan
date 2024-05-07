@@ -6,7 +6,7 @@
 
 #ifndef LIB_RUNTIME_CUCORR_H_
 #define LIB_RUNTIME_CUCORR_H_
-
+#include <cstddef>
 
 
 namespace cucorr::runtime {
@@ -22,6 +22,15 @@ using cucorr::runtime::RawStream;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum cucorr_memcpy_kind_t: unsigned int{
+    cucorr_MemcpyHostToHost = 0,
+    cucorr_MemcpyHostToDevice = 1,
+    cucorr_MemcpyDeviceToHost = 2,
+    cucorr_MemcpyDeviceToDevice = 3,
+    cucorr_MemcpyDefault = 4,
+} cucorr_MemcpyKind;
+
 void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream stream);
 void _cucorr_sync_device();
 void _cucorr_event_record(Event event, RawStream stream);
@@ -30,6 +39,8 @@ void _cucorr_sync_event(Event event);
 void _cucorr_stream_event(Event event);
 void _cucorr_create_event(RawStream* event);
 void _cucorr_create_stream(RawStream* stream);
+void _cucorr_memcpy_async ( void* dst, const void* src, size_t count, cucorr_MemcpyKind kind, RawStream stream);
+void _cucorr_memset_async ( void* devPtr, int  value, size_t count, RawStream stream);
 #ifdef __cplusplus
 }
 #endif

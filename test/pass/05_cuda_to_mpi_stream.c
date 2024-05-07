@@ -15,6 +15,8 @@
 // CHECK-LLVM-IR: cudaStreamCreate 
 // CHECK-LLVM-IR: _cucorr_create_stream 
 
+// CHECK-LLVM-IR: cudaMemcpyAsync
+// CHECK-LLVM-IR: _cucorr_memcpy_async
 // CHECK-LLVM-IR: cudaStreamSynchronize
 // CHECK-LLVM-IR: _cucorr_sync_stream
 

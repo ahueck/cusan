@@ -52,6 +52,8 @@ struct FunctionDecl {
   CucorrFunction cucorr_sync_event{"_cucorr_sync_event"};
   CucorrFunction cucorr_event_create{"_cucorr_create_event"};
   CucorrFunction cucorr_stream_create{"_cucorr_create_stream"};
+  CucorrFunction cucorr_memset_async{"_cucorr_memset_async"};
+  CucorrFunction cucorr_memcpy_async{"_cucorr_memcpy_async"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -101,6 +103,19 @@ struct FunctionDecl {
 
     ArgTypes arg_types_stream_create = {Type::getInt8PtrTy(c)};
     make_function(cucorr_stream_create, arg_types_stream_create);
+
+    auto size_t_ty = m.getDataLayout().getIntPtrType(c);
+
+    //void* devPtr, int  value, size_t count, RawStream* stream
+    ArgTypes arg_types_memset_async = {Type::getInt8PtrTy(c), Type::getInt32Ty(c), size_t_ty, Type::getInt8PtrTy(c)};
+    make_function(cucorr_memset_async, arg_types_memset_async);
+    
+    
+    //void* dst, const void* src
+    ArgTypes arg_types_memcpy_async = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c),
+    //size_t count, MemcpyKind kind, RawStream stream
+                                       size_t_ty, Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
+    make_function(cucorr_memcpy_async, arg_types_memcpy_async);
   }
 };
 
@@ -336,6 +351,39 @@ class EventRecordFlagsInstrumenter : public SimpleInstrumenter<EventRecordFlagsI
   }
 };
 
+class MemcpyAsyncInstrumenter : public SimpleInstrumenter<MemcpyAsyncInstrumenter> {
+ public:
+  MemcpyAsyncInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaMemcpyAsync", &decls->cucorr_memcpy_async.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream = 0 
+    assert(args.size() == 5);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* src_ptr = irb.CreateBitOrPointerCast(args[1], irb.getInt8PtrTy());
+    auto* count = args[2];
+    auto* kind = args[3];
+    auto* cu_stream = irb.CreateBitOrPointerCast(args[4], irb.getInt8PtrTy());
+    return {dst_ptr, src_ptr, count, kind, cu_stream};
+  }
+};
+
+class MemsetAsyncInstrumenter : public SimpleInstrumenter<MemsetAsyncInstrumenter> {
+ public:
+  MemsetAsyncInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaMemsetAsync", &decls->cucorr_memcpy_async.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* devPtr, int  value, size_t count, cudaStream_t stream = 0 )
+    assert(args.size() == 4);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* value = args[1];
+    auto* count = args[2];
+    auto* cu_stream = irb.CreateBitOrPointerCast(args[3], irb.getInt8PtrTy());
+    return {dst_ptr, value, count, cu_stream};
+  }
+};
+
 
 class EventCreateInstrumenter : public SimpleInstrumenter<EventCreateInstrumenter> {
  public:
@@ -497,6 +545,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::EventRecordFlagsInstrumenter(&cucorr_decls_).instrument(function);
   transform::EventCreateInstrumenter(&cucorr_decls_).instrument(function);
   transform::StreamCreateInstrumenter(&cucorr_decls_).instrument(function);
+  transform::MemsetAsyncInstrumenter(&cucorr_decls_).instrument(function);
+  transform::MemcpyAsyncInstrumenter(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},

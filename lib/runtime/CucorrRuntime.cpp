@@ -12,8 +12,6 @@
 #include "TSan_External.h"
 
 #include <iostream>
-// #include <llvm/Support/Compiler.h>
-#include <llvm/Support/Compiler.h>
 #include <map>
 
 
@@ -180,4 +178,10 @@ void _cucorr_create_event(Event*){
 void _cucorr_create_stream(RawStream* stream){
     Runtime::get().register_stream(Stream(*stream));
     LOG_DEBUG("CreateEvent");
+}
+void _cucorr_memcpy_async ( void*, const void*, size_t, cucorr_MemcpyKind, RawStream){
+  LOG_DEBUG("MemCpy async");
+}
+void _cucorr_memset_async ( void*, int , size_t, RawStream*){
+  LOG_DEBUG("memset async");
 }
