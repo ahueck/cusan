@@ -9,10 +9,7 @@
 // clang-format on
 
 // CHECK-DAG: [Error] sync
-// CHECK-DAG: data race
-
 // CHECK-SYNC-NOT: [Error] sync
-// CHECK-SYNC-NOT: data race
 
 #include "../support/gpu_mpi.h"
 

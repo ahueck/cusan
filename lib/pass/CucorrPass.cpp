@@ -56,6 +56,8 @@ struct FunctionDecl {
   CucorrFunction cucorr_memcpy_async{"_cucorr_memcpy_async"};
   CucorrFunction cucorr_memset{"_cucorr_memset"};
   CucorrFunction cucorr_memcpy{"_cucorr_memcpy"};
+  CucorrFunction cucorr_stream_wait_event{"_cucorr_stream_wait_event"};
+  
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -127,6 +129,9 @@ struct FunctionDecl {
     //size_t count, MemcpyKind kind
                                        size_t_ty, Type::getInt32Ty(c)};
     make_function(cucorr_memcpy, arg_types_memcpy);
+
+    ArgTypes arg_types_stream_wait_event = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
+    make_function(cucorr_stream_wait_event, arg_types_stream_wait_event);
   }
 };
 
@@ -450,7 +455,19 @@ class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumen
     return {cu_stream_void_ptr_ptr};
   }
 };
-
+class StreamWaitEventInstrumenter : public SimpleInstrumenter<StreamWaitEventInstrumenter> {
+ public:
+  StreamWaitEventInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaStreamWaitEvent", &decls->cucorr_stream_wait_event.f);
+  }
+  static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    assert(args.size() == 3);
+    // auto* cu_stream_void_ptr = irb.CreateLoad(irb.getInt8PtrTy(), args[0], "");
+    auto* cu_stream_void_ptr  = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* cu_event_void_ptr  = irb.CreateBitOrPointerCast(args[1], irb.getInt8PtrTy());
+    return {cu_stream_void_ptr, cu_event_void_ptr, args[2]};
+  }
+};
 
 
 }  // namespace transform
@@ -592,6 +609,7 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::MemcpyAsyncInstrumenter(&cucorr_decls_).instrument(function);
   transform::CudaMemsetInstrumenter(&cucorr_decls_).instrument(function);
   transform::CudaMemcpyInstrumenter(&cucorr_decls_).instrument(function);
+  transform::StreamWaitEventInstrumenter(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},
