@@ -54,6 +54,8 @@ struct FunctionDecl {
   CucorrFunction cucorr_stream_create{"_cucorr_create_stream"};
   CucorrFunction cucorr_memset_async{"_cucorr_memset_async"};
   CucorrFunction cucorr_memcpy_async{"_cucorr_memcpy_async"};
+  CucorrFunction cucorr_memset{"_cucorr_memset"};
+  CucorrFunction cucorr_memcpy{"_cucorr_memcpy"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -110,12 +112,21 @@ struct FunctionDecl {
     ArgTypes arg_types_memset_async = {Type::getInt8PtrTy(c), Type::getInt32Ty(c), size_t_ty, Type::getInt8PtrTy(c)};
     make_function(cucorr_memset_async, arg_types_memset_async);
     
-    
     //void* dst, const void* src
     ArgTypes arg_types_memcpy_async = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c),
     //size_t count, MemcpyKind kind, RawStream stream
                                        size_t_ty, Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
     make_function(cucorr_memcpy_async, arg_types_memcpy_async);
+
+    //void* devPtr, int  value, size_t count
+    ArgTypes arg_types_memset= {Type::getInt8PtrTy(c), Type::getInt32Ty(c), size_t_ty};
+    make_function(cucorr_memset, arg_types_memset);
+    
+    //void* dst, const void* src
+    ArgTypes arg_types_memcpy = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c),
+    //size_t count, MemcpyKind kind
+                                       size_t_ty, Type::getInt32Ty(c)};
+    make_function(cucorr_memcpy, arg_types_memcpy);
   }
 };
 
@@ -368,10 +379,26 @@ class MemcpyAsyncInstrumenter : public SimpleInstrumenter<MemcpyAsyncInstrumente
   }
 };
 
+class CudaMemcpyInstrumenter : public SimpleInstrumenter<CudaMemcpyInstrumenter> {
+ public:
+  CudaMemcpyInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaMemcpy", &decls->cucorr_memcpy.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //void* dst, const void* src, size_t count, cudaMemcpyKind kind
+    assert(args.size() == 4);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* src_ptr = irb.CreateBitOrPointerCast(args[1], irb.getInt8PtrTy());
+    auto* count = args[2];
+    auto* kind = args[3];
+    return {dst_ptr, src_ptr, count, kind};
+  }
+};
+
 class MemsetAsyncInstrumenter : public SimpleInstrumenter<MemsetAsyncInstrumenter> {
  public:
   MemsetAsyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaMemsetAsync", &decls->cucorr_memcpy_async.f);
+    setup("cudaMemsetAsync", &decls->cucorr_memset_async.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* devPtr, int  value, size_t count, cudaStream_t stream = 0 )
@@ -381,6 +408,20 @@ class MemsetAsyncInstrumenter : public SimpleInstrumenter<MemsetAsyncInstrumente
     auto* count = args[2];
     auto* cu_stream = irb.CreateBitOrPointerCast(args[3], irb.getInt8PtrTy());
     return {dst_ptr, value, count, cu_stream};
+  }
+};
+class CudaMemsetInstrumenter : public SimpleInstrumenter<CudaMemsetInstrumenter> {
+ public:
+  CudaMemsetInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaMemset", &decls->cucorr_memset.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* devPtr, int  value, size_t count,)
+    assert(args.size() == 3);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* value = args[1];
+    auto* count = args[2];
+    return {dst_ptr, value, count};
   }
 };
 
@@ -409,6 +450,8 @@ class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumen
     return {cu_stream_void_ptr_ptr};
   }
 };
+
+
 
 }  // namespace transform
 
@@ -547,6 +590,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::StreamCreateInstrumenter(&cucorr_decls_).instrument(function);
   transform::MemsetAsyncInstrumenter(&cucorr_decls_).instrument(function);
   transform::MemcpyAsyncInstrumenter(&cucorr_decls_).instrument(function);
+  transform::CudaMemsetInstrumenter(&cucorr_decls_).instrument(function);
+  transform::CudaMemcpyInstrumenter(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},

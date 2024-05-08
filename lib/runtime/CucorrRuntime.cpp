@@ -179,9 +179,31 @@ void _cucorr_create_stream(RawStream* stream){
     Runtime::get().register_stream(Stream(*stream));
     LOG_DEBUG("CreateEvent");
 }
-void _cucorr_memcpy_async ( void*, const void*, size_t, cucorr_MemcpyKind, RawStream){
-  LOG_DEBUG("MemCpy async");
+void _cucorr_memcpy ( void* target, const void* from, size_t size, cucorr_MemcpyKind){
+  LOG_DEBUG("MemCpy sync");
+  //auto& r = Runtime::get();
+  TsanMemoryReadPC(from, size, __builtin_return_address(0));
+  TsanMemoryWritePC(target, size, __builtin_return_address(0));
 }
-void _cucorr_memset_async ( void*, int , size_t, RawStream*){
-  LOG_DEBUG("memset async");
+void _cucorr_memset( void* target, int, size_t size){
+  LOG_DEBUG("Memset sync");
+  //auto& r = Runtime::get();
+  TsanMemoryWritePC(target, size, __builtin_return_address(0));
+}
+void _cucorr_memcpy_async ( void* target, const void* from, size_t size, cucorr_MemcpyKind, RawStream stream){
+  LOG_DEBUG("MemCpy async");
+  auto& r = Runtime::get();
+  r.switch_to_stream(Stream(stream));
+  TsanMemoryReadPC(from, size, __builtin_return_address(0));
+  TsanMemoryWritePC(target, size, __builtin_return_address(0));
+  r.happens_before();
+  r.switch_to_cpu();
+}
+void _cucorr_memset_async ( void* target, int, size_t size, RawStream stream){
+  LOG_DEBUG("Memset async");
+  auto& r = Runtime::get();
+  r.switch_to_stream(Stream(stream));
+  TsanMemoryWritePC(target, size, __builtin_return_address(0));
+  r.happens_before();
+  r.switch_to_cpu();
 }
