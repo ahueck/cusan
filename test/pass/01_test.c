@@ -6,6 +6,8 @@
 
 // CHECK: cudaDeviceSynchronize 
 // CHECK: _cucorr_sync_device 
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
 
 #include <stdio.h>
 __device__ void axpy_write(float a, float* y) {

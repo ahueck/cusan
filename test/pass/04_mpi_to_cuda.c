@@ -18,6 +18,8 @@
 
 // CHECK-LLVM-IR: cudaDeviceSynchronize 
 // CHECK-LLVM-IR: _cucorr_sync_device 
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
 
 // FLAKYPASS: *
 // ALLOW_RETRIES: 5

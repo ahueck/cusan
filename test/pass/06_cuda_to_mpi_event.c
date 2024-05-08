@@ -17,6 +17,8 @@
 
 // CHECK-LLVM-IR: cudaEventRecord 
 // CHECK-LLVM-IR: _cucorr_event_record 
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
 
 
 #include "../support/gpu_mpi.h"

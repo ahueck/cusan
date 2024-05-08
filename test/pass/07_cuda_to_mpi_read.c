@@ -16,6 +16,8 @@
 
 // CHECK-LLVM-IR: cudaDeviceSynchronize 
 // CHECK-LLVM-IR: _cucorr_sync_device 
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
 
 #include "../support/gpu_mpi.h"
 

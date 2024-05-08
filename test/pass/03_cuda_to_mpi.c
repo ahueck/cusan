@@ -13,7 +13,8 @@
 
 // CHECK-SYNC-NOT: [Error] sync
 
-// CHECK-LLVM-IR: _cucorr_kernel_register
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
 
 #include "../support/gpu_mpi.h"
 
