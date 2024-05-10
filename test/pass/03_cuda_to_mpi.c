@@ -1,16 +1,18 @@
 // clang-format off
-// RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
 // RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 
 // clang-format on
 
-// CHECK: [Error] sync
+// CHECK-DAG: data race
+// CHECK-DAG: [Error] sync
 
+// CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: cudaMemcpy 
@@ -38,7 +40,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const int size            = 512;
+  const int size            = 256;
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
 

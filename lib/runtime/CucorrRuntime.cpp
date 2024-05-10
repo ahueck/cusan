@@ -16,6 +16,10 @@
 
 
 namespace cucorr::runtime {
+constexpr bool DEBUG_PRINT = true;
+
+
+
 struct Stream{
   RawStream handle;
   constexpr explicit Stream(const void* h = nullptr): handle(h){}
@@ -108,6 +112,9 @@ class Runtime {
 
   
   void record_event(Event event, Stream stream){
+    if constexpr (DEBUG_PRINT){
+      llvm::errs() << "[cucorr]    Record event: "<< event << " stream:" << stream.handle << "\n";
+    }
     events_[event] = stream;
   }
 
@@ -115,6 +122,9 @@ class Runtime {
   void sync_event(Event event){
     auto search_result = events_.find(event);
     assert(search_result != events_.end() && "Tried using event that wasnt recorded to prior");
+    if constexpr (DEBUG_PRINT){
+      llvm::errs() << "[cucorr]    Sync event: "<< event << " recorded on stream:" << events_[event].handle << "\n";
+    }
     happens_after_stream(events_[event]);
   }
 
@@ -129,6 +139,9 @@ class Runtime {
 using namespace cucorr::runtime;
 
 void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream stream) {
+  if constexpr (DEBUG_PRINT){
+      llvm::errs() << "[cucorr]Kernel Register with " << n << " Args and on stream:" << stream << "\n";
+  }
   auto& runtime = Runtime::get();
   runtime.switch_to_stream(Stream(stream));
   for (int i = 0; i < n; ++i) {
@@ -144,11 +157,15 @@ void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream
       continue;
     }
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten){
+      if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]    Write to " << ptr << " with size " << alloc_size << "\n";
+      }
       TsanMemoryWritePC(ptr, alloc_size, __builtin_return_address(0));
-      // TsanMemoryWrite(ptr, alloc_size);
     }else if (mode.state == cucorr::AccessState::kRead){
+      if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]    Read from " << ptr << " with size " << alloc_size << "\n";
+      }
       TsanMemoryReadPC(ptr, alloc_size, __builtin_return_address(0));
-      // TsanMemoryRead(ptr, alloc_size);
     }
   }
   runtime.happens_before();
@@ -156,18 +173,30 @@ void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream
 }
 
 void _cucorr_sync_device(){
+    if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Sync Device\n";
+    }
     auto& runtime = Runtime::get();
     runtime.happens_after_all_streams();
 
 }
 void _cucorr_event_record(Event event, RawStream stream){
+    if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Event Record\n";
+    }
     Runtime::get().record_event(event, Stream(stream));
 }
 void _cucorr_sync_stream(RawStream stream){
+    if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Sync Stream" << stream << "\n";
+    }
     auto& runtime = Runtime::get();
     runtime.happens_after_stream(Stream(stream));
 }
 void _cucorr_sync_event(Event event){
+    if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Sync Event" << event << "\n";
+    }
     Runtime::get().sync_event(event);
 }
 void _cucorr_create_event(Event*){
@@ -176,13 +205,22 @@ void _cucorr_create_stream(RawStream* stream){
     Runtime::get().register_stream(Stream(*stream));
 }
 void _cucorr_memcpy ( void* target, const void* from, size_t size, cucorr_MemcpyKind){
+  if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Memcpy\n";
+  }
   TsanMemoryReadPC(from, size, __builtin_return_address(0));
   TsanMemoryWritePC(target, size, __builtin_return_address(0));
 }
 void _cucorr_memset( void* target, int, size_t size){
+  if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]Memset\n";
+  }
   TsanMemoryWritePC(target, size, __builtin_return_address(0));
 }
 void _cucorr_memcpy_async ( void* target, const void* from, size_t size, cucorr_MemcpyKind, RawStream stream){
+  if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]MemcpyAsync\n";
+  }
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   TsanMemoryReadPC(from, size, __builtin_return_address(0));
@@ -191,6 +229,9 @@ void _cucorr_memcpy_async ( void* target, const void* from, size_t size, cucorr_
   r.switch_to_cpu();
 }
 void _cucorr_memset_async ( void* target, int, size_t size, RawStream stream){
+  if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]MemsetAsync\n";
+  }
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   TsanMemoryWritePC(target, size, __builtin_return_address(0));
@@ -198,6 +239,9 @@ void _cucorr_memset_async ( void* target, int, size_t size, RawStream stream){
   r.switch_to_cpu();
 }
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags){
+  if constexpr (DEBUG_PRINT){
+        llvm::errs() << "[cucorr]StreamWaitEvent stream:" << stream << " on event:" << event << "\n";
+  }
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   r.sync_event(event);
