@@ -16,15 +16,23 @@
 
 
 namespace cucorr::runtime {
-constexpr bool DEBUG_PRINT = true;
+constexpr bool DEBUG_PRINT = false;
 
 
 
 struct Stream{
   RawStream handle;
-  constexpr explicit Stream(const void* h = nullptr): handle(h){}
+
+  //if set then the default stream will not block when this stream has still work todo
+  bool isBlocking;
+
+
+  constexpr explicit Stream(const void* h = nullptr, bool isBlocking = true): handle(h), isBlocking(isBlocking){}
   constexpr bool operator<(const Stream& rhs) const {
       return this->handle < rhs.handle;
+  }
+  [[nodiscard]] constexpr bool isDefaultStream() const{
+    return handle == nullptr;
   }
 }; 
 
@@ -92,9 +100,21 @@ class Runtime {
   }
 
   void switch_to_stream(Stream stream){
+    if constexpr (DEBUG_PRINT){
+      llvm::errs() << "[cucorr]    Switching to stream: "<< stream.handle << "\n";
+    }
     auto search_result = streams_.find(stream);
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     TsanSwitchToFiber(search_result->second, 0);
+    if (search_result->first.isDefaultStream()){
+        //then we are on the default stream and as such want to synchronize behind all other streams 
+        //unless they are nonBlocking
+        for(auto& [s, sync_var]: streams_){
+          if(s.isBlocking){
+            TsanHappensAfter(sync_var);
+          }
+        }
+    } 
     curr_fiber_ = search_result->second;
   }
 
@@ -205,17 +225,35 @@ void _cucorr_create_stream(RawStream* stream){
     Runtime::get().register_stream(Stream(*stream));
 }
 void _cucorr_memcpy ( void* target, const void* from, size_t size, cucorr_MemcpyKind){
+  //NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
+  //https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
   if constexpr (DEBUG_PRINT){
         llvm::errs() << "[cucorr]Memcpy\n";
   }
+  auto& r = Runtime::get();
+  r.switch_to_stream(Stream());
   TsanMemoryReadPC(from, size, __builtin_return_address(0));
   TsanMemoryWritePC(target, size, __builtin_return_address(0));
+  r.happens_before();
+  r.switch_to_cpu();
+  //NOTE: not 100% sure about this but in theory if we copy to device we dont care so we can say after on cpu
+  //      and if we copy to host then it should be synchronized according to docs
+  r.happens_after_stream(Stream());
 }
 void _cucorr_memset( void* target, int, size_t size){
   if constexpr (DEBUG_PRINT){
         llvm::errs() << "[cucorr]Memset\n";
   }
+  //NOTE: this beheaviour of the default stream is from memcpy so i assume its the same here
+  //https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
+  auto& r = Runtime::get();
+  r.switch_to_stream(Stream());
   TsanMemoryWritePC(target, size, __builtin_return_address(0));
+  r.happens_before();
+  r.switch_to_cpu();
+  //NOTE: not 100% sure about this but in theory if we set device memory we dont care so we can say after on cpu
+  //      and if we set device memory to host then it should be synchronized
+  r.happens_after_stream(Stream());
 }
 void _cucorr_memcpy_async ( void* target, const void* from, size_t size, cucorr_MemcpyKind, RawStream stream){
   if constexpr (DEBUG_PRINT){

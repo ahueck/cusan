@@ -41,6 +41,13 @@
 __global__ void writing_kernel(float* arr, const int N, float value) { 
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
+#if __CUDA_ARCH__ >= 700
+    for (int i = 0; i < tid; i++) {
+      __nanosleep(1000000U);
+    }
+#else
+    printf(">>> __CUDA_ARCH__ !\n");
+#endif
     arr[tid] = (float)tid + value;
   }
 }
@@ -62,6 +69,7 @@ int main(int argc, char* argv[]) {
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
 
   float* h_data = (float*)malloc(size * sizeof(float));
+  memset(h_data, 0, size*sizeof(float));
   // Allocate device memory
   float *d_data;
   float *res_data;
@@ -69,8 +77,9 @@ int main(int argc, char* argv[]) {
   cudaMalloc(&d_data, size * sizeof(float));
   
   // Copy host memory to device
-  cudaMemcpy(d_data, h_data, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_data, h_data, size * sizeof(float), cudaMemcpyHostToDevice);
   
+  cudaDeviceSynchronize();
   // Create CUDA streams
   cudaStream_t stream1, stream2;
   cudaStreamCreate(&stream1);
@@ -79,7 +88,7 @@ int main(int argc, char* argv[]) {
   cudaEvent_t event;
   cudaEventCreate(&event);
   // Launch first kernel in stream1
-  writing_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size, 5.0f);
+  writing_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size, 5.0f);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   
   // Record event after kernel in stream1
   cudaEventRecord(event, stream1);
@@ -89,13 +98,14 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Launch second kernel in stream2
-  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f);
+  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+
+  // Copy data back to host
+  cudaMemcpy(h_data, d_data, size * sizeof(float), cudaMemcpyDeviceToHost);
 
   // Wait for stream2 to finish
   cudaStreamSynchronize(stream2);
 
-  // Copy data back to host
-  cudaMemcpy(h_data, d_data, size, cudaMemcpyDeviceToHost);
 
   cudaStreamDestroy ( stream2 );
   cudaStreamDestroy ( stream1 );
