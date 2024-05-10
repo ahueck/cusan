@@ -1,16 +1,18 @@
 // clang-format off
-// RUN: %wrapper-cc -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-cc %tsan-compile-flags -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
+// RUN: %tsan-options %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-cc -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-cc %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
+// RUN: %tsan-options %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
 // RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 
 // clang-format on
 
-// CHECK: [Error] sync
+// CHECK-DAG: data race
+// CHECK-DAG: [Error] sync
 
+// CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: cudaEventCreate 
@@ -21,6 +23,7 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include "TSan_External.h"
 
 __global__ void kernel(int* data) {
   int tid   = threadIdx.x + blockIdx.x * blockDim.x;
@@ -56,6 +59,7 @@ int main() {
 #endif
 
   for (int i = 0; i < size; i++) {
+    TsanMemoryRead(&d_data[i], sizeof(int));
     if (d_data[i] < 1) {
       printf("[Error] sync\n");
     }
