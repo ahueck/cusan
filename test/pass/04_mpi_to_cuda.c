@@ -9,8 +9,10 @@
 
 // clang-format on
 
-// CHECK: [Error] sync
+// CHECK-DAG: data race
+// CHECK-DAG: [Error] sync
 
+// CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: cudaDeviceSynchronize 
@@ -53,7 +55,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const int size            = 512;
+  const int size            = 256;
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
 

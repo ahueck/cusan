@@ -8,7 +8,10 @@
 // RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-SYNC
 // clang-format on
 
+// CHECK-DAG: data race
 // CHECK-DAG: [Error] sync
+
+// CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
 #include "../support/gpu_mpi.h"

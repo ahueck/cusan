@@ -22,9 +22,12 @@ typedef unsigned short a16;
 typedef unsigned int a32;
 typedef unsigned long long a64;
 
+#include "cstdio"
+
 #ifdef MUST_DEBUG
 // Print an error message *once* if an annotation function is used that is not overwritten by the
 // TSan runtime
+
 #define FALLBACK_PRINT(func_name)                                                  \
   {                                                                                \
     static bool once = false;                                                      \
