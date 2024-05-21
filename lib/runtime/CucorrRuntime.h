@@ -39,10 +39,10 @@ void _cucorr_sync_event(Event event);
 void _cucorr_stream_event(Event event);
 void _cucorr_create_event(RawStream* event);
 void _cucorr_create_stream(RawStream* stream);
-void _cucorr_memcpy_async ( void* dst, const void* src, size_t count, cucorr_MemcpyKind kind, RawStream stream);
-void _cucorr_memset_async ( void* devPtr, int  value, size_t count, RawStream stream);
-void _cucorr_memcpy ( void* target, const void* from, size_t size, cucorr_MemcpyKind);
-void _cucorr_memset( void* target, int, size_t size);
+void _cucorr_memcpy_async ( void* target, const void* from, size_t count, cucorr_MemcpyKind kind, RawStream stream);
+void _cucorr_memset_async ( void* target, int, size_t count, RawStream stream);
+void _cucorr_memcpy ( void* target, const void* from, size_t count, cucorr_MemcpyKind);
+void _cucorr_memset( void* target, int, size_t count);
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags);
 #ifdef __cplusplus
 }
