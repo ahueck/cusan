@@ -288,11 +288,10 @@ class SimpleInstrumenter {
         if (loc == InsertLocation::kBefore) {
           irb.SetInsertPoint(cb);
         } else {
-          //NOTE: this only needed if it can be the last instruction which in our case cant be the case since we only check callbases and assume corerct llvmir before?
-          if (Instruction* insert_instruction = cb->getNextNonDebugInstruction()) {
-            irb.SetInsertPoint(insert_instruction);
-          } else {
-            irb.SetInsertPoint(cb->getParent());
+          if (auto* invoke = dyn_cast<InvokeInst>(cb)) {
+            irb.SetInsertPoint(invoke->getNormalDest()->getFirstNonPHI());
+          }else{
+            irb.SetInsertPoint(cb->getNextNonDebugInstruction());
           }
         }
         if (!cb->arg_empty()) {
