@@ -8,12 +8,17 @@
 #define LIB_RUNTIME_CUCORR_H_
 #include <cstddef>
 
-
+#ifdef __cplusplus
 namespace cucorr::runtime {
   using TsanFiber = void*;
   using Event = const void*;
   using RawStream = const void*;
 }
+#else
+#define TsanFiber void*
+#define Event const void*
+#define RawStream const void*
+#endif
 
 using cucorr::runtime::TsanFiber;
 using cucorr::runtime::Event;

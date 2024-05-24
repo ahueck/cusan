@@ -38,7 +38,7 @@ export(
 
 
 
-add_library(cucorr_Runtime SHARED CucorrRuntime.cpp)
+add_library(cucorr_Runtime SHARED CucorrRuntime.cpp CucorrRuntime_cudaSpecific.cpp)
 set_target_properties(
   cucorr_Runtime
   PROPERTIES

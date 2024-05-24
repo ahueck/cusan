@@ -147,6 +147,8 @@ class Runtime {
   ~Runtime() = default;
 };
 
+cucorr_MemcpyKind inferMemcpyDirection(const void* target, const void* from);
+
 }  // namespace cucorr::runtime
 
 using namespace cucorr::runtime;
@@ -222,6 +224,8 @@ void _cucorr_create_stream(RawStream* stream) {
   Runtime::get().register_stream(Stream(*stream));
 }
 
+
+
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {
   // NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
   // https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
@@ -230,27 +234,8 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   }
 
   if (kind == cucorr_MemcpyDefault) {
-    assert(false && "Not handling memcpy default yet");
-    //cudaPointerAttributes target_attribs;
-    //cudaPointerGetAttributes(&target_attribs, target);
-    //cudaPointerAttributes from_attribs;
-    //cudaPointerGetAttributes(&from_attribs, target);
-    //bool targetIsHostMem = target_attribs.type == cudaMemoryType::cudaMemoryTypeUnregistered ||
-    //                       target_attribs.type == cudaMemoryType::cudaMemoryTypeHost;
-    //bool fromIsHostMem = target_attribs.type == cudaMemoryType::cudaMemoryTypeUnregistered ||
-    //                     target_attribs.type == cudaMemoryType::cudaMemoryTypeHost;
-    //if (!fromIsHostMem && !targetIsHostMem) {
-    //  kind =cucorr_MemcpyDeviceToDevice
-    //}
-    //else if (!fromIsHostMem && targetIsHostMem) {
-    //  kind =cucorr_MemcpyDeviceToHost
-    //}
-    //else if (fromIsHostMem && !targetIsHostMem) {
-    //  kind =cucorr_MemcpyHostToDevice
-    //}
-    //else if (fromIsHostMem && targetIsHostMem) {
-    //  kind =cucorr_MemcpyHostToHost
-    //}
+    //assert(false && "Not handling memcpy default yet");
+    kind = inferMemcpyDirection(target, from);
   }
 
   auto& r = Runtime::get();

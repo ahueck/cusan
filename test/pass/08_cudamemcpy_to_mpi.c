@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const int size            = 1<<26;//67mb
+  const int size            = 1<<26;//268mb
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
 
