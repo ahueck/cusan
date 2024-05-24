@@ -3,11 +3,12 @@
 // CHECK: TypeArtPass [Heap]
 // CHECK-NEXT: Malloc :   2
 
-
+// CHECK: cudaMemcpy 
+// CHECK: _cucorr_memcpy 
 // CHECK: cudaDeviceSynchronize 
 // CHECK: _cucorr_sync_device 
-// CHECK-LLVM-IR: cudaMemcpy 
-// CHECK-LLVM-IR: _cucorr_memcpy 
+// CHECK: cudaMemcpy 
+// CHECK: _cucorr_memcpy 
 
 #include <stdio.h>
 __device__ void axpy_write(float a, float* y) {

@@ -204,7 +204,8 @@ function cucorr_source_to_llvm() {
 
 function cucorr_apply_pass() {
   cucorr_source_to_llvm |
-    $opt_tool ${typeart_plugin} ${typeart_combined_mode_args} ${ta_more_args} -S |
+    $opt_tool ${typeart_plugin} ${typeart_heap_mode_args} ${ta_more_args} -S |
+    $opt_tool ${typeart_plugin} ${typeart_stack_mode_args} ${ta_more_args} -S |
     $opt_tool ${cucorr_plugin} ${more_args} -S
 }
 
@@ -219,7 +220,7 @@ function cucorr_apply_pass_optim() {
 
 function cucorr_compile() {
   local llc_flags="--filetype=obj"
-  if [ "$optimize" == " " ]; then
+  if [ "$optimize" == "-O0" ]; then
     if [ $show_cuda_ir == 0 ] && [ $show_cuda_host_ir == 0 ]; then
       cucorr_apply_pass | $llc_tool -x=ir ${llc_flags} -o "${object_file}"
     else
