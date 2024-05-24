@@ -24,8 +24,6 @@
 
 #include <unistd.h>
 
-#define MUST_DEBUG 1
-#include "TSan_External.h"
 
 __global__ void kernel(int* arr, const int N) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -73,6 +71,7 @@ int main(int argc, char* argv[]) {
     const int buf_v = h_data[i];
     if (buf_v == 0) {
       printf("[Error] sync\n");
+      break;
     }
   }
   free(h_data);

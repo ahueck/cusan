@@ -75,6 +75,7 @@ int main(int argc, char* argv[]) {
       const int buf_v = h_data[i];
       if (buf_v == 0) {
         printf("[Error] sync\n");
+        break;
       }
       //      printf("buf[%d] = %d (r%d)\n", i, buf_v, world_rank);
     }

@@ -26,10 +26,8 @@
 
 #include <unistd.h>
 
-#define MUST_DEBUG 1
-#include "TSan_External.h"
 
-__global__ void kernel(int* arr, const int N) { 
+__global__ void kernel(int* arr, const int N) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
     arr[tid] = arr[tid]+1;
@@ -57,14 +55,14 @@ int main(int argc, char* argv[]) {
   cudaMalloc(&d_data, size * sizeof(int));
   
   
-  kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+  kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size);
   cudaEventRecord(first_finished_event, stream1);
 
 #ifdef CUCORR_SYNC
   cudaEventSynchronize(first_finished_event);
 #endif
   
-  kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(d_data, size);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+  kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(d_data, size);
 
   cudaStreamDestroy ( stream1 );
   cudaStreamDestroy ( stream2 );

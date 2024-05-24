@@ -94,6 +94,7 @@ int main(int argc, char* argv[]) {
       const int buf_v = h_data[i];
       if (buf_v >= 0) {
         printf("[Error] sync\n");
+        break;
       }
     }
     free(h_data);

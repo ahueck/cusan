@@ -106,6 +106,7 @@ int main(int argc, char* argv[]) {
       // Expect: all values should be positive, given the p_1 kernel sets them to tid.
       if (buf_v < 1) {
         printf("[Error] sync\n");
+        break;
       }
       //      printf("buf[%d] = %d (r%d)\n", i, buf_v, world_rank);
     }

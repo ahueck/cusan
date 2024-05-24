@@ -35,10 +35,7 @@
 
 #include <unistd.h>
 
-#define MUST_DEBUG 1
-#include "TSan_External.h"
-
-__global__ void writing_kernel(float* arr, const int N, float value) { 
+__global__ void writing_kernel(float* arr, const int N, float value) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
 #if __CUDA_ARCH__ >= 700
@@ -52,7 +49,7 @@ __global__ void writing_kernel(float* arr, const int N, float value) {
   }
 }
 
-__global__ void reading_kernel(float* res, const float* read, const int N, float value) { 
+__global__ void reading_kernel(float* res, const float* read, const int N, float value) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
     res[tid] = read[tid]+value;
@@ -88,7 +85,7 @@ int main(int argc, char* argv[]) {
   cudaEvent_t event;
   cudaEventCreate(&event);
   // Launch first kernel in stream1
-  writing_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size, 5.0f);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+  writing_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size, 5.0f);
   
   // Record event after kernel in stream1
   cudaEventRecord(event, stream1);
@@ -98,7 +95,7 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Launch second kernel in stream2
-  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f);  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f); 
 
   // Copy data back to host
   cudaMemcpy(h_data, d_data, size * sizeof(float), cudaMemcpyDeviceToHost);

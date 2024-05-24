@@ -184,7 +184,7 @@ function cucorr_toolchain_init() {
     ;;
   esac
 
-  readonly cucorr_san_flags="@CUCORR_SAN_FLAGS@"
+  readonly cucorr_san_flags="@CUCORR_SAN_FLAGS@ -fsanitize=thread"
 }
 
 function cucorr_source_to_llvm() {
@@ -199,7 +199,7 @@ function cucorr_source_to_llvm() {
     cuda_add_flag+=" -x cuda"
   fi
   $compiler ${cuda_add_flag} ${omp_flags} ${typeart_includes} ${cucorr_include_dir} ${cucorr_san_flags} \
-    -O1 -g ${compile_flags} -Xclang -disable-llvm-passes -S -emit-llvm "${source_file}" -o - | $opt_tool -mem2reg -S
+    -O0 -Xclang -disable-O0-optnone -g ${compile_flags} -S -emit-llvm "${source_file}" -o - | $opt_tool -mem2reg -S
 }
 
 function cucorr_apply_pass() {
