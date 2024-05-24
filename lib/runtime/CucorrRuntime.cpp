@@ -147,7 +147,7 @@ class Runtime {
   ~Runtime() = default;
 };
 
-cucorr_MemcpyKind inferMemcpyDirection(const void* target, const void* from);
+cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from);
 
 }  // namespace cucorr::runtime
 
@@ -224,8 +224,6 @@ void _cucorr_create_stream(RawStream* stream) {
   Runtime::get().register_stream(Stream(*stream));
 }
 
-
-
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {
   // NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
   // https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
@@ -234,7 +232,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   }
 
   if (kind == cucorr_MemcpyDefault) {
-    //assert(false && "Not handling memcpy default yet");
+    // assert(false && "Not handling memcpy default yet");
     kind = inferMemcpyDirection(target, from);
   }
 
