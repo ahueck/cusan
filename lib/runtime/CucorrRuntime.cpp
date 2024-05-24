@@ -280,8 +280,8 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     r.switch_to_stream(Stream());
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
     r.happens_before();
-    //   but the DMA to final destination may not have completed.
     r.switch_to_cpu();
+    r.happens_after_stream(Stream());
   } else if (kind == cucorr_MemcpyHostToHost) {
     // 5. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
