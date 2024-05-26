@@ -20,7 +20,7 @@ constexpr bool DEBUG_PRINT = false;
 struct Stream {
   RawStream handle;
 
-  // if set then the default stream will not block when this stream has still work todo
+  // blocks the default stream till its done
   bool isBlocking;
 
   constexpr explicit Stream(const void* h = nullptr, bool isBlocking = true) : handle(h), isBlocking(isBlocking) {
@@ -232,8 +232,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   }
 
   if (kind == cucorr_MemcpyDefault) {
-    // assert(false && "Not handling memcpy default yet");
-    kind = inferMemcpyDirection(target, from);
+    kind = infer_memcpy_direction(target, from);
   }
 
   auto& r = Runtime::get();
@@ -334,4 +333,14 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
   r.sync_event(event);
   r.happens_before();
   r.switch_to_cpu();
+}
+
+void _cucorr_host_alloc(void**, size_t, unsigned int){
+  //atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
+  // https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
+  if constexpr (DEBUG_PRINT) {
+    llvm::errs() << "[cucorr]host alloc -> implicit device Device\n";
+  }
+  auto& runtime = Runtime::get();
+  runtime.happens_after_all_streams();
 }

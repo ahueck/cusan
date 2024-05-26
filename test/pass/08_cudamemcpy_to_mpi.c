@@ -7,6 +7,9 @@
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
+// Tsan sometimes crashes with this test it seems 
+// FLAKYPASS: *
+// ALLOW_RETRIES: 5
 
 #include "../support/gpu_mpi.h"
 

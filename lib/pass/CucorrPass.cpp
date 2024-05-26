@@ -57,6 +57,7 @@ struct FunctionDecl {
   CucorrFunction cucorr_memset{"_cucorr_memset"};
   CucorrFunction cucorr_memcpy{"_cucorr_memcpy"};
   CucorrFunction cucorr_stream_wait_event{"_cucorr_stream_wait_event"};
+  CucorrFunction cucorr_host_alloc{"_cucorr_host_alloc"};
   
 
   void initialize(Module& m) {
@@ -132,6 +133,9 @@ struct FunctionDecl {
 
     ArgTypes arg_types_stream_wait_event = {Type::getInt8PtrTy(c), Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
     make_function(cucorr_stream_wait_event, arg_types_stream_wait_event);
+
+    ArgTypes arg_types_host_alloc = {Type::getInt8PtrTy(c), size_t_ty, Type::getInt32Ty(c)};
+    make_function(cucorr_host_alloc, arg_types_host_alloc);
   }
 };
 
@@ -429,6 +433,36 @@ class CudaMemsetInstrumenter : public SimpleInstrumenter<CudaMemsetInstrumenter>
   }
 };
 
+class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
+ public:
+  CudaHostAlloc(callback::FunctionDecl* decls) {
+    setup("cudaHostAlloc", &decls->cucorr_memset.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void** ptr, size_t size, unsigned int flags )
+    assert(args.size() == 3);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* size = args[1];
+    auto* flags = args[2];
+    return {dst_ptr, size, flags};
+  }
+};
+
+class CudaMallocHost : public SimpleInstrumenter<CudaMallocHost> {
+ public:
+  CudaMallocHost(callback::FunctionDecl* decls) {
+    setup("cudaHostAlloc", &decls->cucorr_memset.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void** ptr, size_t size )
+    assert(args.size() == 2);
+    auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* size = args[1];
+    auto* flags =  llvm::ConstantInt::get(Type::getInt32Ty(irb.getContext()), 0, false);
+    return {dst_ptr, size, flags};
+  }
+};
+
 
 class EventCreateInstrumenter : public SimpleInstrumenter<EventCreateInstrumenter> {
  public:
@@ -609,6 +643,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::CudaMemsetInstrumenter(&cucorr_decls_).instrument(function);
   transform::CudaMemcpyInstrumenter(&cucorr_decls_).instrument(function);
   transform::StreamWaitEventInstrumenter(&cucorr_decls_).instrument(function);
+  transform::CudaMallocHost(&cucorr_decls_).instrument(function);
+  transform::CudaHostAlloc(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},

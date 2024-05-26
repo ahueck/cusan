@@ -49,6 +49,8 @@ void _cucorr_memset_async ( void* target, int, size_t count, RawStream stream);
 void _cucorr_memcpy ( void* target, const void* from, size_t count, cucorr_MemcpyKind);
 void _cucorr_memset( void* target, int, size_t count);
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags);
+void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags);
+void _cucorr_host_alloc(void** ptr, size_t size, unsigned int  flags);
 #ifdef __cplusplus
 }
 #endif
