@@ -2,10 +2,24 @@
 // RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
 // RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
+// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 // clang-format on
 
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
+
+// CHECK-LLVM-IR: cudaStreamCreate
+// CHECK-LLVM-IR: _cucorr_create_stream
+// CHECK-LLVM-IR: cudaMemset 
+// CHECK-LLVM-IR: _cucorr_memset 
+// CHECK-LLVM-IR: cudaDeviceSynchronize 
+// CHECK-LLVM-IR: _cucorr_sync_device 
+// CHECK-LLVM-IR: cudaMemcpy 
+// CHECK-LLVM-IR: _cucorr_memcpy 
+// CHECK-LLVM-IR: cudaMemcpyAsync
+// CHECK-LLVM-IR: _cucorr_memcpy_async
+// CHECK-LLVM-IR: cudaStreamSynchronize
+// CHECK-LLVM-IR: _cucorr_sync_stream
 
 // Tsan sometimes crashes with this test it seems 
 // FLAKYPASS: *
