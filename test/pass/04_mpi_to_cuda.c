@@ -17,9 +17,6 @@
 
 // CHECK-LLVM-IR: cudaDeviceSynchronize 
 // CHECK-LLVM-IR: _cucorr_sync_device 
-
-// CHECK-LLVM-IR: cudaDeviceSynchronize 
-// CHECK-LLVM-IR: _cucorr_sync_device 
 // CHECK-LLVM-IR: cudaMemcpy 
 // CHECK-LLVM-IR: _cucorr_memcpy 
 
@@ -99,7 +96,7 @@ int main(int argc, char* argv[]) {
 
   if (world_rank == 1) {
     int* h_data = (int*)malloc(size * sizeof(int));
-    cudaDeviceSynchronize();
+    //cudaDeviceSynchronize();
     cudaMemcpy(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < size; i++) {
       const int buf_v = h_data[i];
