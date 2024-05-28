@@ -334,7 +334,7 @@ class CudaMemsetInstrumenter : public SimpleInstrumenter<CudaMemsetInstrumenter>
 class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
  public:
   CudaHostAlloc(callback::FunctionDecl* decls) {
-    setup("cudaHostAlloc", &decls->cucorr_memset.f);
+    setup("cudaHostAlloc", &decls->cucorr_host_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void** ptr, size_t size, unsigned int flags )
@@ -349,7 +349,7 @@ class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
 class CudaMallocHost : public SimpleInstrumenter<CudaMallocHost> {
  public:
   CudaMallocHost(callback::FunctionDecl* decls) {
-    setup("cudaHostAlloc", &decls->cucorr_memset.f);
+    setup("cudaHostAlloc", &decls->cucorr_host_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void** ptr, size_t size )
@@ -404,7 +404,7 @@ class StreamWaitEventInstrumenter : public SimpleInstrumenter<StreamWaitEventIns
 class CudaHostRegister : public SimpleInstrumenter<CudaHostRegister> {
  public:
   CudaHostRegister(callback::FunctionDecl* decls) {
-    setup("cudaHostRegister", &decls->cucorr_memset.f);
+    setup("cudaHostRegister", &decls->cucorr_host_register.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -419,7 +419,7 @@ class CudaHostRegister : public SimpleInstrumenter<CudaHostRegister> {
 class CudaHostUnregister : public SimpleInstrumenter<CudaHostUnregister> {
  public:
   CudaHostUnregister(callback::FunctionDecl* decls) {
-    setup("cudaHostUnregister", &decls->cucorr_memset.f);
+    setup("cudaHostUnregister", &decls->cucorr_host_unregister.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -432,7 +432,7 @@ class CudaHostUnregister : public SimpleInstrumenter<CudaHostUnregister> {
 class CudaHostFree : public SimpleInstrumenter<CudaHostFree> {
  public:
   CudaHostFree(callback::FunctionDecl* decls) {
-    setup("cudaFreeHost", &decls->cucorr_memset.f);
+    setup("cudaFreeHost", &decls->cucorr_host_free.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)

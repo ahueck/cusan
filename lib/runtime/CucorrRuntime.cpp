@@ -152,8 +152,14 @@ class Runtime {
     allocations_[ptr] = info;
   }
 
+  void free_allocation(void* ptr) {
+    assert(allocations_.find(ptr) != allocations_.end() && "Tried to delete a non existant allocation");
+    allocations_.erase(ptr);
+  }
+
   AllocationInfo* get_allocation_info(const void* ptr) {
     auto res = allocations_.find(ptr);
+    //could use size to find if the pointer lies in any region
     if (res == allocations_.end()) {
       return nullptr;
     }
@@ -374,7 +380,11 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
 }
 
 void _cucorr_host_free(void* ptr) {
-  // TODO: clean up allocation
+  if constexpr (DEBUG_PRINT) {
+    llvm::errs() << "[cucorr]host free\n";
+  }
+  auto& runtime = Runtime::get();
+  runtime.free_allocation(ptr);
 }
 
 void _cucorr_host_register(void* ptr, size_t size, unsigned int flags) {
@@ -388,5 +398,6 @@ void _cucorr_host_unregister(void* ptr) {
   if constexpr (DEBUG_PRINT) {
     llvm::errs() << "[cucorr]host unregister\n";
   }
-  // TODO: clean up allocation
+  auto& runtime = Runtime::get();
+  runtime.free_allocation(ptr);
 }

@@ -8,8 +8,12 @@
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
+// CHECK-LLVM-IR: cudaHostRegister
+// CHECK-LLVM-IR: _cucorr_host_register
 // CHECK-LLVM-IR: cudaMemcpy
 // CHECK-LLVM-IR: _cucorr_memcpy
+// CHECK-LLVM-IR: cudaHostUnregister
+// CHECK-LLVM-IR: _cucorr_host_unregister
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -17,8 +21,10 @@
 int main(int argc, char* argv[]) {
   const int size            = 1<<26;//268mb
   int* h_data = (int*)malloc(size * sizeof(int));
+  cudaHostRegister(h_data, size*sizeof(int), cudaHostRegisterDefault);
+
+
   memset(h_data, 0, size*sizeof(int));
-  //just to check default
   cudaMemcpy(h_data, h_data, size * sizeof(int), cudaMemcpyDefault);
   for (int i = 0; i < size; i++) {
     const int buf_v = h_data[i];
@@ -27,6 +33,7 @@ int main(int argc, char* argv[]) {
       break;
     }
   }
+  cudaHostUnregister(h_data);
   free(h_data);
   return 0;
 }
