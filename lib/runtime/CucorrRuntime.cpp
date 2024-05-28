@@ -33,8 +33,7 @@ struct Stream {
   }
 };
 
-
-struct AllocationInfo{
+struct AllocationInfo {
   size_t size;
   bool is_pinned;
 };
@@ -148,18 +147,17 @@ class Runtime {
     happens_after_stream(events_[event]);
   }
 
-  void insert_allocation(void* ptr, AllocationInfo info){
+  void insert_allocation(void* ptr, AllocationInfo info) {
     assert(allocations_.find(ptr) == allocations_.end() && "Registered an allocation multiple times");
     allocations_[ptr] = info;
   }
 
-  AllocationInfo* get_allocation_info(const void* ptr){
+  AllocationInfo* get_allocation_info(const void* ptr) {
     auto res = allocations_.find(ptr);
-    if(res == allocations_.end()){
+    if (res == allocations_.end()) {
       return nullptr;
     }
     return &res->second;
-    
   }
 
  private:
@@ -277,11 +275,11 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
     auto* alloc_info = r.get_allocation_info(from);
-    if(!alloc_info){
+    if (!alloc_info) {
       LOG_WARNING("Couldnt find if allocation is pinned or not\n");
     }
-    //if we couldnt find alloc info we just assume the worst and dont sync
-    if(alloc_info && !alloc_info->is_pinned){
+    // if we couldnt find alloc info we just assume the worst and dont sync
+    if (alloc_info && !alloc_info->is_pinned) {
       r.happens_after_stream(Stream());
     }
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
@@ -363,9 +361,9 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
   r.switch_to_cpu();
 }
 
-void _cucorr_host_alloc(void** ptr, size_t size, unsigned int){
-  //atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
-  // https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
+void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
+  // atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
+  //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
   if constexpr (DEBUG_PRINT) {
     llvm::errs() << "[cucorr]host alloc -> implicit device Device\n";
   }
@@ -375,3 +373,20 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int){
   runtime.insert_allocation(ptr, AllocationInfo{size, true});
 }
 
+void _cucorr_host_free(void* ptr) {
+  // TODO: clean up allocation
+}
+
+void _cucorr_host_register(void* ptr, size_t size, unsigned int flags) {
+  if constexpr (DEBUG_PRINT) {
+    llvm::errs() << "[cucorr]host register\n";
+  }
+  auto& runtime = Runtime::get();
+  runtime.insert_allocation(ptr, AllocationInfo{size, true});
+}
+void _cucorr_host_unregister(void* ptr) {
+  if constexpr (DEBUG_PRINT) {
+    llvm::errs() << "[cucorr]host unregister\n";
+  }
+  // TODO: clean up allocation
+}
