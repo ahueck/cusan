@@ -33,6 +33,12 @@ struct Stream {
   }
 };
 
+
+struct AllocationInfo{
+  size_t size;
+  bool is_pinned;
+};
+
 struct PtrAttribute {
   AccessState state{AccessState::kRW};
   bool is_ptr{false};
@@ -50,6 +56,7 @@ struct PointerAccess {
 };
 
 class Runtime {
+  std::map<const void*, AllocationInfo> allocations_;
   std::map<Stream, TsanFiber> streams_;
   std::map<Event, Stream> events_;
   TsanFiber cpu_fiber_;
@@ -139,6 +146,20 @@ class Runtime {
       llvm::errs() << "[cucorr]    Sync event: " << event << " recorded on stream:" << events_[event].handle << "\n";
     }
     happens_after_stream(events_[event]);
+  }
+
+  void insert_allocation(void* ptr, AllocationInfo info){
+    assert(allocations_.find(ptr) == allocations_.end() && "Registered an allocation multiple times");
+    allocations_[ptr] = info;
+  }
+
+  AllocationInfo* get_allocation_info(const void* ptr){
+    auto res = allocations_.find(ptr);
+    if(res == allocations_.end()){
+      return nullptr;
+    }
+    return &res->second;
+    
   }
 
  private:
@@ -255,7 +276,14 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   } else if (kind == cucorr_MemcpyHostToDevice) {
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
-    r.happens_after_stream(Stream());
+    auto* alloc_info = r.get_allocation_info(from);
+    if(!alloc_info){
+      LOG_WARNING("Couldnt find if allocation is pinned or not\n");
+    }
+    //if we couldnt find alloc info we just assume the worst and dont sync
+    if(alloc_info && !alloc_info->is_pinned){
+      r.happens_after_stream(Stream());
+    }
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
     //   device memory
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
@@ -335,7 +363,7 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
   r.switch_to_cpu();
 }
 
-void _cucorr_host_alloc(void**, size_t, unsigned int){
+void _cucorr_host_alloc(void** ptr, size_t size, unsigned int){
   //atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
   // https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
   if constexpr (DEBUG_PRINT) {
@@ -343,4 +371,7 @@ void _cucorr_host_alloc(void**, size_t, unsigned int){
   }
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
+
+  runtime.insert_allocation(ptr, AllocationInfo{size, true});
 }
+
