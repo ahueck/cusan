@@ -349,10 +349,10 @@ class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
 class CudaMallocHost : public SimpleInstrumenter<CudaMallocHost> {
  public:
   CudaMallocHost(callback::FunctionDecl* decls) {
-    setup("cudaHostAlloc", &decls->cucorr_host_alloc.f);
+    setup("cudaMallocHost", &decls->cucorr_host_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
-    //( void** ptr, size_t size )
+    //( void** ptr, size_t size)
     assert(args.size() == 2);
     auto* dst_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     auto* size    = args[1];
