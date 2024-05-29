@@ -15,10 +15,10 @@
 // CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
-// CHECK-LLVM-IR: cudaDeviceSynchronize 
-// CHECK-LLVM-IR: _cucorr_sync_device 
-// CHECK-LLVM-IR: cudaMemcpy 
-// CHECK-LLVM-IR: _cucorr_memcpy 
+// CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize 
+// CHECK-LLVM-IR: call void @_cucorr_sync_device 
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
 
 // FLAKYPASS: *
 // ALLOW_RETRIES: 5

@@ -9,16 +9,17 @@
 // CHECK-NOT: [Error] sync
 
 // CHECK-LLVM-IR: @main(i32 noundef %0, i8** noundef %1)
-// CHECK-LLVM-IR: cudaMallocHost
-// CHECK-LLVM-IR: _cucorr_host_alloc
+// CHECK-LLVM-IR: invoke i32 @cudaMallocHost
+// CHECK-LLVM-IR: call void @_cucorr_host_alloc
+// CHECK-LLVM-IR: invoke noundef i32 @_ZL13cudaHostAllocIiE9cudaErrorPPT_mj
+// CHECK-LLVM-IR: invoke i32 @cudaFreeHost({{.*}}[[free_ptr1:%[0-9a-z]+]])
+// CHECK-LLVM-IR: call void @_cucorr_host_free({{.*}}[[free_ptr1]])
+// CHECK-LLVM-IR: invoke i32 @cudaFreeHost({{.*}}[[free_ptr2:%[0-9a-z]+]])
+// CHECK-LLVM-IR: call void @_cucorr_host_free({{.*}}[[free_ptr2]])
+
 // CHECK-LLVM-IR: _ZL13cudaHostAllocIiE9cudaErrorPPT_mj
-// CHECK-LLVM-IR: cudaFreeHost
-// CHECK-LLVM-IR: _cucorr_host_free
-// CHECK-LLVM-IR: cudaFreeHost
-// CHECK-LLVM-IR: _cucorr_host_free
-// CHECK-LLVM-IR: _ZL13cudaHostAllocIiE9cudaErrorPPT_mj
-// CHECK-LLVM-IR: cudaHostAlloc
-// CHECK-LLVM-IR: _cucorr_host_alloc
+// CHECK-LLVM-IR: invoke i32 @cudaHostAlloc({{.*}}[[host_alloc_ptr:%[0-9a-z]+]])
+// CHECK-LLVM-IR: call void @_cucorr_host_alloc({{.*}}[[host_alloc_ptr]])
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -29,7 +30,6 @@ int main(int argc, char* argv[]) {
   cudaMallocHost((void**)&h_data1, size*sizeof(int));
   int* h_data2;
   cudaHostAlloc(&h_data2, size*sizeof(int), cudaHostAllocDefault);
-
   cudaFreeHost(h_data1);
   cudaFreeHost(h_data2);
   return 0;

@@ -8,18 +8,18 @@
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
-// CHECK-LLVM-IR: cudaStreamCreate
-// CHECK-LLVM-IR: _cucorr_create_stream
-// CHECK-LLVM-IR: cudaMemset 
-// CHECK-LLVM-IR: _cucorr_memset 
-// CHECK-LLVM-IR: cudaDeviceSynchronize 
-// CHECK-LLVM-IR: _cucorr_sync_device 
-// CHECK-LLVM-IR: cudaMemcpy 
-// CHECK-LLVM-IR: _cucorr_memcpy 
-// CHECK-LLVM-IR: cudaMemcpyAsync
-// CHECK-LLVM-IR: _cucorr_memcpy_async
-// CHECK-LLVM-IR: cudaStreamSynchronize
-// CHECK-LLVM-IR: _cucorr_sync_stream
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
+// CHECK-LLVM-IR: call void @_cucorr_create_stream
+// CHECK-LLVM-IR: invoke i32 @cudaMemset(i8* {{.*}}[[mset_target:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memset(i8* {{.*}}[[mset_target]],
+// CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize 
+// CHECK-LLVM-IR: call void @_cucorr_sync_device 
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[mcpy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpy_from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[mcpy_target]], i8* {{.*}}[[mcpy_from]],
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpyAsync(i8* {{.*}}[[mcpyasy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpyasy_from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy_async(i8* {{.*}}[[mcpyasy_target]], i8* {{.*}}[[mcpyasy_from]],
+// CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
+// CHECK-LLVM-IR: call void @_cucorr_sync_stream
 
 // Tsan sometimes crashes with this test it seems 
 // FLAKYPASS: *

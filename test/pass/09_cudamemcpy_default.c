@@ -9,12 +9,12 @@
 // CHECK-NOT: [Error] sync
 
 // CHECK-LLVM-IR: @main(i32 noundef %0, i8** noundef %1)
-// CHECK-LLVM-IR: cudaHostRegister
-// CHECK-LLVM-IR: _cucorr_host_register
-// CHECK-LLVM-IR: cudaMemcpy
-// CHECK-LLVM-IR: _cucorr_memcpy
-// CHECK-LLVM-IR: cudaHostUnregister
-// CHECK-LLVM-IR: _cucorr_host_unregister
+// CHECK-LLVM-IR: invoke i32 @cudaHostRegister(i8* {{.*}}[[unregister_ptr:%[0-9a-z]+]]
+// CHECK-LLVM-IR: call void @_cucorr_host_register(i8* {{.*}}[[unregister_ptr]]
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
+// CHECK-LLVM-IR: invoke i32 @cudaHostUnregister(i8* {{.*}}[[unregister_ptr:%[0-9a-z]+]]
+// CHECK-LLVM-IR: call void @_cucorr_host_unregister(i8* {{.*}}[[unregister_ptr]]
 
 #include <cuda_runtime.h>
 #include <stdio.h>
