@@ -376,7 +376,7 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
 
-  runtime.insert_allocation(ptr, AllocationInfo{size, true});
+  runtime.insert_allocation(*ptr, AllocationInfo{size, true});
 }
 
 void _cucorr_host_free(void* ptr) {
