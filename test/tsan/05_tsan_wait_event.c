@@ -14,21 +14,20 @@
 
 // CHECK-SYNC-NOT: data race
 
-// CHECK-LLVM-IR: cudaMemcpy
-// CHECK-LLVM-IR: _cucorr_memcpy
-// CHECK-LLVM-IR: cudaStreamCreate
-// CHECK-LLVM-IR: _cucorr_create_stream 
-// CHECK-LLVM-IR: cudaStreamCreate
-// CHECK-LLVM-IR: _cucorr_create_stream 
-// CHECK-LLVM-IR: cudaEventCreate
-// CHECK-LLVM-IR: _cucorr_create_event
-// CHECK-LLVM-IR: cudaEventRecord
-// CHECK-LLVM-IR: _cucorr_event_record 
-// CHECK-LLVM-IR: cudaStreamSynchronize
-// CHECK-LLVM-IR: _cucorr_sync_stream
-// CHECK-LLVM-IR: cudaMemcpy
-// CHECK-LLVM-IR: _cucorr_memcpy
-
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[mcpy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpy_from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[mcpy_target]], i8* {{.*}}[[mcpy_from]],
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
+// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
+// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaEventCreate
+// CHECK-LLVM-IR: call void @_cucorr_create_event
+// CHECK-LLVM-IR: invoke i32 @cudaEventRecord
+// CHECK-LLVM-IR: call void @_cucorr_event_record
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[mcpy2_target:%[0-9a-z]+]], i8* {{.*}}[[mcpy2_from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[mcpy2_target]], i8* {{.*}}[[mcpy2_from]],
+// CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
+// CHECK-LLVM-IR: call void @_cucorr_sync_stream
 
 
 #include "../support/gpu_mpi.h"

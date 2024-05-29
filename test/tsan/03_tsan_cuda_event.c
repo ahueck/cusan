@@ -13,14 +13,14 @@
 
 // CHECK-SYNC-NOT: data race
 
-// CHECK-LLVM-IR: cudaEventCreate 
-// CHECK-LLVM-IR: _cucorr_create_event 
-// CHECK-LLVM-IR: cudaStreamCreate 
-// CHECK-LLVM-IR: _cucorr_create_stream 
-// CHECK-LLVM-IR: cudaStreamCreate 
-// CHECK-LLVM-IR: _cucorr_create_stream 
-// CHECK-LLVM-IR: cudaEventRecord 
-// CHECK-LLVM-IR: _cucorr_event_record 
+// CHECK-LLVM-IR: invoke i32 @cudaEventCreate 
+// CHECK-LLVM-IR: call void @_cucorr_create_event 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
+// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
+// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaEventRecord 
+// CHECK-LLVM-IR: call void @_cucorr_event_record 
 
 #include "../support/gpu_mpi.h"
 

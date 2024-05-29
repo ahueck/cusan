@@ -15,10 +15,15 @@
 // CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
-// CHECK-LLVM-IR: cudaStreamCreate 
-// CHECK-LLVM-IR: _cucorr_create_stream 
-// CHECK-LLVM-IR: cudaStreamCreate 
-// CHECK-LLVM-IR: _cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
+// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
+// CHECK-LLVM-IR: call void @_cucorr_create_stream
+// CHECK-LLVM-IR: invoke i32 @cudaMemcpyAsync(i8* {{.*}}[[mcpyasy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpyasy_from:%[0-9a-z]+]],
+// CHECK-LLVM-IR: call void @_cucorr_memcpy_async(i8* {{.*}}[[mcpyasy_target]], i8* {{.*}}[[mcpyasy_from]], 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
+// CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy 
+// CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy 
 
 #include "../support/gpu_mpi.h"
 

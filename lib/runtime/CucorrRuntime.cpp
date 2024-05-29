@@ -159,8 +159,13 @@ class Runtime {
 
   AllocationInfo* get_allocation_info(const void* ptr) {
     auto res = allocations_.find(ptr);
-    //could use size to find if the pointer lies in any region
     if (res == allocations_.end()) {
+      //fallback find if it lies within a region
+      //for(auto [alloc_ptr, alloc_info]: allocations_){
+      //  if(alloc_ptr < ptr && ((const char*)alloc_ptr) + alloc_info.size > ptr){
+      //    return &allocations_[ptr];
+      //  }
+      //}
       return nullptr;
     }
     return &res->second;
@@ -281,9 +286,6 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
     auto* alloc_info = r.get_allocation_info(from);
-    if (!alloc_info) {
-      LOG_WARNING("Couldnt find if allocation is pinned or not\n");
-    }
     // if we couldnt find alloc info we just assume the worst and dont sync
     if (alloc_info && !alloc_info->is_pinned) {
       r.happens_after_stream(Stream());
