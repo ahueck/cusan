@@ -18,9 +18,7 @@
 
 #include <unistd.h>
 
-
-
-__global__ void kernel(int* arr, const int N) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+__global__ void kernel(int* arr, const int N) {  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
 #if __CUDA_ARCH__ >= 700

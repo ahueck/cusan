@@ -187,33 +187,56 @@ function cucorr_toolchain_init() {
   readonly cucorr_san_flags="@CUCORR_SAN_FLAGS@ -fsanitize=thread"
 }
 
+function cucorr_make_ir() {
+  local cuda_add_flag="$1"
+  $compiler ${cuda_add_flag} ${omp_flags} ${typeart_includes} ${cucorr_include_dir} ${cucorr_san_flags} \
+   -O0 -Xclang -disable-O0-optnone -g ${compile_flags} -S -emit-llvm "${source_file}" -o - |
+   $opt_tool -mem2reg -S
+    # -O1 -Xclang -disable-llvm-passes -g ${compile_flags} -S -emit-llvm "${source_file}" -o -
+  
+}
+
 function cucorr_source_to_llvm() {
   local cuda_add_flag=""
   if [ $found_cuda == 1 ]; then
-    cuda_add_flag="--cuda-host-only"
-    if [ $show_cuda_ir == 1 ]; then
-      cuda_add_flag="--cuda-device-only --cuda-gpu-arch=${cuda_code_arch}"
-    elif [ $show_cuda_host_ir == 1 ]; then
-      cuda_add_flag="--cuda-host-only"
-    fi
+    cuda_add_flag=""
     cuda_add_flag+=" -x cuda"
+    if [ $show_cuda_ir == 1 ]; then
+      cuda_add_flag+=" --cuda-device-only --cuda-gpu-arch=${cuda_code_arch}"
+    elif [ $show_cuda_host_ir == 1 ]; then
+      cuda_add_flag+=" --cuda-host-only"
+      # generate kernel data, workaround
+      cucorr_device_pass no_out
+    fi
   fi
-  $compiler ${cuda_add_flag} ${omp_flags} ${typeart_includes} ${cucorr_include_dir} ${cucorr_san_flags} \
-    -O0 -Xclang -disable-O0-optnone -g ${compile_flags} -S -emit-llvm "${source_file}" -o - | $opt_tool -mem2reg -S
+  cucorr_make_ir "${cuda_add_flag}"
+}
+
+function cucorr_device_pass() {
+    local no_out=${1:-yes}
+    if [ "$no_out" == "no_out" ]; then
+        more_args+=" -disable-output"
+    else
+        more_args+=" -S"
+    fi
+    cucorr_make_ir "-x cuda --cuda-device-only --cuda-gpu-arch=${cuda_code_arch}" |
+    $opt_tool ${cucorr_plugin} ${more_args}
 }
 
 function cucorr_apply_pass() {
   cucorr_source_to_llvm |
     $opt_tool ${typeart_plugin} ${typeart_heap_mode_args} ${ta_more_args} -S |
-    $opt_tool ${typeart_plugin} ${typeart_stack_mode_args} ${ta_more_args} -S |
-    $opt_tool ${cucorr_plugin} ${more_args} -S
+    $opt_tool ${cucorr_plugin} ${more_args} -S |
+    # $opt_tool  -passes="tsan-module,tsan" -S |
+    $opt_tool ${typeart_plugin} ${typeart_stack_mode_args} ${ta_more_args} -S 
 }
 
 function cucorr_apply_pass_optim() {
   cucorr_source_to_llvm |
     $opt_tool ${typeart_plugin} ${typeart_heap_mode_args} ${ta_more_args} |
-    $opt_tool ${optimize} -S |
     $opt_tool ${cucorr_plugin} ${more_args} |
+    # $opt_tool  -passes="tsan-module,tsan" -S |
+    $opt_tool ${optimize} -S |
     $opt_tool ${typeart_plugin} ${typeart_stack_mode_args} ${ta_more_args} -S
 
 }

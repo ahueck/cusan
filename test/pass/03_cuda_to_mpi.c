@@ -16,7 +16,7 @@
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
 
 #include "../support/gpu_mpi.h"
 

@@ -8,33 +8,32 @@
 // RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
 // RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 
-// clang-format on
-
 // CHECK-DAG: data race
 
 // CHECK-SYNC-NOT: data race
 
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[mcpy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpy_from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[mcpy_target]], i8* {{.*}}[[mcpy_from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[mcpy_target]], i8* {{.*}}[[mcpy_from]],
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
-// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
-// CHECK-LLVM-IR: call void @_cucorr_create_stream 
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream 
 // CHECK-LLVM-IR: invoke i32 @cudaEventCreate
-// CHECK-LLVM-IR: call void @_cucorr_create_event
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_event
 // CHECK-LLVM-IR: invoke i32 @cudaEventRecord
-// CHECK-LLVM-IR: call void @_cucorr_event_record
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_event_record
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[mcpy2_target:%[0-9a-z]+]], i8* {{.*}}[[mcpy2_from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[mcpy2_target]], i8* {{.*}}[[mcpy2_from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[mcpy2_target]], i8* {{.*}}[[mcpy2_from]],
 // CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
-// CHECK-LLVM-IR: call void @_cucorr_sync_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_sync_stream
 
+// clang-format on
 
 #include "../support/gpu_mpi.h"
 
 #include <unistd.h>
 
-__global__ void writing_kernel(float* arr, const int N, float value) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+__global__ void writing_kernel(float* arr, const int N, float value) {  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
 #if __CUDA_ARCH__ >= 700
@@ -48,10 +47,11 @@ __global__ void writing_kernel(float* arr, const int N, float value) {   // CHEC
   }
 }
 
-__global__ void reading_kernel(float* res, const float* read, const int N, float value) {   // CHECK-DAG: [[FILENAME]]:[[@LINE]]
+__global__ void reading_kernel(float* res, const float* read, const int N,
+                               float value) {  // CHECK-DAG: [[FILENAME]]:[[@LINE]]
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < N) {
-    res[tid] = read[tid]+value;
+    res[tid] = read[tid] + value;
   }
 }
 
@@ -65,16 +65,16 @@ int main(int argc, char* argv[]) {
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
 
   float* h_data = (float*)malloc(size * sizeof(float));
-  memset(h_data, 0, size*sizeof(float));
+  memset(h_data, 0, size * sizeof(float));
   // Allocate device memory
-  float *d_data;
-  float *res_data;
+  float* d_data;
+  float* res_data;
   cudaMalloc(&res_data, size * sizeof(float));
   cudaMalloc(&d_data, size * sizeof(float));
-  
+
   // Copy host memory to device
   cudaMemcpy(d_data, h_data, size * sizeof(float), cudaMemcpyHostToDevice);
-  
+
   cudaDeviceSynchronize();
   // Create CUDA streams
   cudaStream_t stream1, stream2;
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
   cudaEventCreate(&event);
   // Launch first kernel in stream1
   writing_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size, 5.0f);
-  
+
   // Record event after kernel in stream1
   cudaEventRecord(event, stream1);
   // Make stream2 wait for the event
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
 #endif
 
   // Launch second kernel in stream2
-  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f); 
+  reading_kernel<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(res_data, d_data, size, 10.0f);
 
   // Copy data back to host
   cudaMemcpy(h_data, d_data, size * sizeof(float), cudaMemcpyDeviceToHost);
@@ -102,9 +102,8 @@ int main(int argc, char* argv[]) {
   // Wait for stream2 to finish
   cudaStreamSynchronize(stream2);
 
-
-  cudaStreamDestroy ( stream2 );
-  cudaStreamDestroy ( stream1 );
+  cudaStreamDestroy(stream2);
+  cudaStreamDestroy(stream1);
   cudaEventDestroy(event);
   cudaFree(d_data);
   free(h_data);

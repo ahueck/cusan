@@ -10,24 +10,23 @@
 
 // CHECK-LLVM-IR: @main(i32 noundef %0, i8** noundef %1)
 // CHECK-LLVM-IR: invoke i32 @cudaHostRegister(i8* {{.*}}[[unregister_ptr:%[0-9a-z]+]]
-// CHECK-LLVM-IR: call void @_cucorr_host_register(i8* {{.*}}[[unregister_ptr]]
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_host_register(i8* {{.*}}[[unregister_ptr]]
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
 // CHECK-LLVM-IR: invoke i32 @cudaHostUnregister(i8* {{.*}}[[unregister_ptr:%[0-9a-z]+]]
-// CHECK-LLVM-IR: call void @_cucorr_host_unregister(i8* {{.*}}[[unregister_ptr]]
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_host_unregister(i8* {{.*}}[[unregister_ptr]]
 
 #include <cuda_runtime.h>
 #include <stdio.h>
 
 int main(int argc, char* argv[]) {
-  const int size            = 512;
-  int* h_data = (int*)malloc(size * sizeof(int));
-  cudaHostRegister(h_data, size*sizeof(int), cudaHostRegisterDefault);
+  const int size = 512;
+  int* h_data    = (int*)malloc(size * sizeof(int));
+  cudaHostRegister(h_data, size * sizeof(int), cudaHostRegisterDefault);
   int* h_data2;
-  cudaHostAlloc(&h_data2, size*sizeof(int), cudaHostAllocDefault);
+  cudaHostAlloc(&h_data2, size * sizeof(int), cudaHostAllocDefault);
 
-
-  memset(h_data, 0, size*sizeof(int));
+  memset(h_data, 0, size * sizeof(int));
   cudaMemcpy(h_data, h_data, size * sizeof(int), cudaMemcpyDefault);
   for (int i = 0; i < size; i++) {
     const int buf_v = h_data[i];

@@ -11,6 +11,17 @@
 
 namespace cucorr::util {
 
+// template <typename... Strings>
+// bool starts_with_any_of(llvm::StringRef lhs, Strings&&... rhs) {
+//   return !lhs.empty() && ((lhs.startswith(std::forward<Strings>(rhs))) || ...);
+// }
+
+template <typename... Strings>
+bool starts_with_any_of(const std::string& lhs, Strings&&... rhs) {
+  const auto starts_with = [](const std::string& str, std::string_view prefix) { return str.rfind(prefix, 0) == 0; };
+  return !lhs.empty() && ((starts_with(lhs, std::forward<Strings>(rhs))) || ...);
+}
+
 template <typename String>
 inline std::string demangle(String&& s) {
   std::string name = std::string{s};

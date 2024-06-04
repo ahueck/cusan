@@ -15,24 +15,23 @@
 // CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
-// CHECK-LLVM-IR: invoke i32 @cudaEventCreate 
-// CHECK-LLVM-IR: call void @_cucorr_create_event 
+// CHECK-LLVM-IR: invoke i32 @cudaEventCreate
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_event
 
-// CHECK-LLVM-IR: invoke i32 @cudaEventRecord 
-// CHECK-LLVM-IR: call void @_cucorr_event_record 
+// CHECK-LLVM-IR: invoke i32 @cudaEventRecord
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_event_record
 
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-
 __global__ void kernel(int* data) {
-  int tid   = threadIdx.x + blockIdx.x * blockDim.x;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
 #if __CUDA_ARCH__ >= 700
-    for (int i = 0; i < tid; i++) {
-      __nanosleep(1000000U);
-    }
+  for (int i = 0; i < tid; i++) {
+    __nanosleep(1000000U);
+  }
 #else
-    printf(">>> __CUDA_ARCH__ !\n");
+  printf(">>> __CUDA_ARCH__ !\n");
 #endif
   data[tid] = (tid + 1);
 }
@@ -46,7 +45,7 @@ int main() {
 
   // Allocate Unified Memory
   cudaMallocManaged(&d_data, size * sizeof(int));
-  cudaMemset ( d_data, 0, size * sizeof(int) );
+  cudaMemset(d_data, 0, size * sizeof(int));
 
   cudaEvent_t endEvent;
   cudaEventCreate(&endEvent);

@@ -15,10 +15,10 @@
 // CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
-// CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize 
-// CHECK-LLVM-IR: call void @_cucorr_sync_device 
+// CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_sync_device
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: call void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
 
 // FLAKYPASS: *
 // ALLOW_RETRIES: 5
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 
   if (world_rank == 1) {
     int* h_data = (int*)malloc(size * sizeof(int));
-    //cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
     cudaMemcpy(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost);
     for (int i = 0; i < size; i++) {
       const int buf_v = h_data[i];

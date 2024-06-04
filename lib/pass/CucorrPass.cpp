@@ -12,6 +12,7 @@
 #include "analysis/KernelAnalysis.h"
 #include "support/CudaUtil.h"
 #include "support/Logger.h"
+#include "support/Util.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
@@ -122,6 +123,12 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
 }
 
 bool CucorrPass::runOnFunc(llvm::Function& function) {
+  const auto stub_name = util::try_demangle(function);
+
+  if (util::starts_with_any_of(stub_name, "__tsan", "__typeart", "_cucorr_", "MPI::", "std::", "MPI_")) {
+    return false;
+  }
+
   bool modified = false;
   transform::DeviceSyncInstrumenter(&cucorr_decls_).instrument(function);
   transform::StreamSyncInstrumenter(&cucorr_decls_).instrument(function);
