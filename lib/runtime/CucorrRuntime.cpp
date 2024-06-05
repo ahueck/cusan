@@ -160,12 +160,12 @@ class Runtime {
   AllocationInfo* get_allocation_info(const void* ptr) {
     auto res = allocations_.find(ptr);
     if (res == allocations_.end()) {
-      //fallback find if it lies within a region
-      //for(auto [alloc_ptr, alloc_info]: allocations_){
-      //  if(alloc_ptr < ptr && ((const char*)alloc_ptr) + alloc_info.size > ptr){
-      //    return &allocations_[ptr];
-      //  }
-      //}
+      // fallback find if it lies within a region
+      // for(auto [alloc_ptr, alloc_info]: allocations_){
+      //   if(alloc_ptr < ptr && ((const char*)alloc_ptr) + alloc_info.size > ptr){
+      //     return &allocations_[ptr];
+      //   }
+      // }
       return nullptr;
     }
     return &res->second;
@@ -319,6 +319,12 @@ void _cucorr_memset(void* target, int, size_t count) {
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   r.happens_before();
   r.switch_to_cpu();
+
+  auto* alloc_info = r.get_allocation_info(target);
+  // if we couldnt find alloc info we just assume the worst and dont sync
+  if (alloc_info && !alloc_info->is_pinned) {
+    r.happens_after_stream(Stream());
+  }
   // r.happens_after_stream(Stream());
 }
 
