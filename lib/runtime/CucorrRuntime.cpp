@@ -15,7 +15,6 @@
 #include <map>
 
 namespace cucorr::runtime {
-constexpr bool DEBUG_PRINT = false;
 
 struct Stream {
   RawStream handle;
@@ -100,9 +99,9 @@ class Runtime {
   }
 
   void switch_to_stream(Stream stream) {
-    if constexpr (DEBUG_PRINT) {
-      llvm::errs() << "[cucorr]    Switching to stream: " << stream.handle << "\n";
-    }
+    LOG_TRACE(
+      "[cucorr]    Switching to stream: " << stream.handle
+    )
     auto search_result = streams_.find(stream);
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     TsanSwitchToFiber(search_result->second, 0);
@@ -131,9 +130,9 @@ class Runtime {
   }
 
   void record_event(Event event, Stream stream) {
-    if constexpr (DEBUG_PRINT) {
-      llvm::errs() << "[cucorr]    Record event: " << event << " stream:" << stream.handle << "\n";
-    }
+    LOG_TRACE(
+      "[cucorr]    Record event: " << event << " stream:" << stream.handle
+    );
     events_[event] = stream;
   }
 
@@ -141,9 +140,9 @@ class Runtime {
   void sync_event(Event event) {
     auto search_result = events_.find(event);
     assert(search_result != events_.end() && "Tried using event that wasnt recorded to prior");
-    if constexpr (DEBUG_PRINT) {
-      llvm::errs() << "[cucorr]    Sync event: " << event << " recorded on stream:" << events_[event].handle << "\n";
-    }
+    LOG_TRACE(
+      "[cucorr]    Sync event: " << event << " recorded on stream:" << events_[event].handle
+    )
     happens_after_stream(events_[event]);
   }
 
@@ -183,10 +182,10 @@ cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from);
 
 using namespace cucorr::runtime;
 
-void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream stream) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Kernel Register with " << n << " Args and on stream:" << stream << "\n";
-  }
+void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream stream) {
+  LOG_TRACE(
+    "[cucorr]Kernel Register with " << n << " Args and on stream:" << stream
+  )
   auto& runtime = Runtime::get();
   runtime.switch_to_stream(Stream(stream));
   for (int i = 0; i < n; ++i) {
@@ -195,55 +194,46 @@ void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream
       continue;
     }
     size_t alloc_size{0};
-    auto* ptr         = *kernel_args[i];
+    auto* ptr         = kernel_args[i];
     auto query_status = typeart_get_type_length(ptr, &alloc_size);
     if (query_status != TYPEART_OK) {
-      LOG_ERROR("Querying allocation length failed. Code: " << int(query_status))
+      LOG_TRACE("Querying allocation length failed. Code: " << int(query_status))
       continue;
     }
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
-      if constexpr (DEBUG_PRINT) {
-        llvm::errs() << "[cucorr]    Write to " << ptr << " with size " << alloc_size << "\n";
-      }
+      LOG_TRACE(
+        "[cucorr]    Write to " << ptr << " with size " << alloc_size)
       TsanMemoryWritePC(ptr, alloc_size, __builtin_return_address(0));
     } else if (mode.state == cucorr::AccessState::kRead) {
-      if constexpr (DEBUG_PRINT) {
-        llvm::errs() << "[cucorr]    Read from " << ptr << " with size " << alloc_size << "\n";
-      }
+      LOG_TRACE(
+        "[cucorr]    Read from " << ptr << " with size " << alloc_size)
       TsanMemoryReadPC(ptr, alloc_size, __builtin_return_address(0));
     }
   }
+  
   runtime.happens_before();
   runtime.switch_to_cpu();
 }
 
 void _cucorr_sync_device() {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Sync Device\n";
-  }
+  LOG_TRACE("[cucorr]Sync Device\n")
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
 }
 
 void _cucorr_event_record(Event event, RawStream stream) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Event Record\n";
-  }
+  LOG_TRACE("[cucorr]Event Record")
   Runtime::get().record_event(event, Stream(stream));
 }
 
 void _cucorr_sync_stream(RawStream stream) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Sync Stream" << stream << "\n";
-  }
+  LOG_TRACE( "[cucorr]Sync Stream" << stream)
   auto& runtime = Runtime::get();
   runtime.happens_after_stream(Stream(stream));
 }
 
 void _cucorr_sync_event(Event event) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Sync Event" << event << "\n";
-  }
+  LOG_TRACE("[cucorr]Sync Event" << event)
   Runtime::get().sync_event(event);
 }
 
@@ -257,9 +247,7 @@ void _cucorr_create_stream(RawStream* stream) {
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {
   // NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
   // https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Memcpy\n";
-  }
+  LOG_TRACE("[cucorr]Memcpy")
 
   if (kind == cucorr_MemcpyDefault) {
     kind = infer_memcpy_direction(target, from);
@@ -311,11 +299,10 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
 void _cucorr_memset(void* target, int, size_t count) {
   // The cudaMemset functions are asynchronous with respect to the host except when the target memory is pinned host
   // memory.
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]Memset\n";
-  }
+  LOG_TRACE( "[cucorr]Memset")
   auto& r = Runtime::get();
   r.switch_to_stream(Stream());
+  LOG_TRACE( "    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   r.happens_before();
   r.switch_to_cpu();
@@ -329,9 +316,7 @@ void _cucorr_memset(void* target, int, size_t count) {
 }
 
 void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_MemcpyKind kind, RawStream stream) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]MemcpyAsync\n";
-  }
+  LOG_TRACE("[cucorr]MemcpyAsync")
   if (kind == cucorr_MemcpyHostToHost) {
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
@@ -354,9 +339,7 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
 
 void _cucorr_memset_async(void* target, int, size_t count, RawStream stream) {
   // The Async versions are always asynchronous with respect to the host.
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]MemsetAsync\n";
-  }
+  LOG_TRACE( "[cucorr]MemsetAsync")
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
@@ -365,9 +348,7 @@ void _cucorr_memset_async(void* target, int, size_t count, RawStream stream) {
 }
 
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]StreamWaitEvent stream:" << stream << " on event:" << event << "\n";
-  }
+  LOG_TRACE( "[cucorr]StreamWaitEvent stream:" << stream << " on event:" << event)
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   r.sync_event(event);
@@ -378,9 +359,7 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
 void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   // atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
   //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]host alloc -> implicit device Device\n";
-  }
+  LOG_TRACE("[cucorr]host alloc -> implicit device Device")
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
 
@@ -388,24 +367,18 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
 }
 
 void _cucorr_host_free(void* ptr) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]host free\n";
-  }
+  LOG_TRACE("[cucorr]host free")
   auto& runtime = Runtime::get();
   runtime.free_allocation(ptr);
 }
 
 void _cucorr_host_register(void* ptr, size_t size, unsigned int flags) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]host register\n";
-  }
+  LOG_TRACE("[cucorr]host register")
   auto& runtime = Runtime::get();
   runtime.insert_allocation(ptr, AllocationInfo{size, true});
 }
 void _cucorr_host_unregister(void* ptr) {
-  if constexpr (DEBUG_PRINT) {
-    llvm::errs() << "[cucorr]host unregister\n";
-  }
+  LOG_TRACE("[cucorr]host unregister")
   auto& runtime = Runtime::get();
   runtime.free_allocation(ptr);
 }

@@ -32,7 +32,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const AccessState& arg) {
 }
 
 bool ModelHandler::insert(const cucorr::KernelModel& model) {
-  const auto result =
+  auto result =
       llvm::find_if(models, [&model](const auto& model_) { return model.kernel_name == model_.kernel_name; });
 
   if (result == std::end(models)) {
@@ -49,6 +49,15 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
     os << *arg.arg.getValue();
   } else {
     os << "<null>";
+  }
+  if (!arg.indices.empty()) {
+    os << ", indicies:[";
+    for(auto index: arg.indices){
+      os << index << ", ";
+    }
+    os << "]";
+  } else {
+    os << ", indicies:[]";
   }
   os << ", pos: " << arg.arg_pos;
   os << ", ptr: " << static_cast<int>(arg.is_pointer) << ", rw: " << arg.state << "]";

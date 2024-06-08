@@ -36,7 +36,7 @@ typedef enum cucorr_memcpy_kind_t : unsigned int {
   cucorr_MemcpyDefault        = 4,
 } cucorr_MemcpyKind;
 
-void _cucorr_kernel_register(void*** kernel_args, short* modes, int n, RawStream stream);
+void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream stream);
 void _cucorr_sync_device();
 void _cucorr_event_record(Event event, RawStream stream);
 void _cucorr_sync_stream(RawStream stream);

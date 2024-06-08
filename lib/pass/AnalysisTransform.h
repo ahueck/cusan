@@ -6,6 +6,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
+#include <utility>
 
 using namespace llvm;
 namespace cucorr {
@@ -15,7 +16,7 @@ namespace analysis {
 using KernelArgInfo = cucorr::FunctionArg;
 
 struct CudaKernelInvokeCollector {
-  KernelModel model;
+  KernelModel& model;
   struct KernelInvokeData {
     llvm::SmallVector<KernelArgInfo, 4> args{};
     llvm::Value* void_arg_array{nullptr};
@@ -23,31 +24,52 @@ struct CudaKernelInvokeCollector {
   };
   using Data = KernelInvokeData;
 
-  CudaKernelInvokeCollector(const KernelModel& current_stub_model) : model(current_stub_model) {
+  CudaKernelInvokeCollector(KernelModel& current_stub_model) : model(current_stub_model) {
   }
 
   llvm::Optional<KernelInvokeData> match(llvm::CallBase& cb, Function& callee) const {
     if (callee.getName() == "cudaLaunchKernel") {
       auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
       auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
-      auto* cb_parent_function    = cb.getFunction();
-      auto kernel_args            = extract_kernel_args_for(*cb_parent_function);
+      //auto* cb_parent_function    = cb.getFunction();
+      auto kernel_args            = extract_kernel_args_for(void_kernel_arg_array);
+
       return KernelInvokeData{kernel_args, void_kernel_arg_array, cu_stream_handle};
     }
     return llvm::NoneType();
   }
 
- private:
-  llvm::SmallVector<KernelArgInfo, 4> extract_kernel_args_for(Function& stub) const {
-    llvm::SmallVector<KernelArgInfo, 4> arg_info;
-    for (auto arg : llvm::enumerate(stub.args())) {
-      const auto index = arg.index();
-      assert(index < model.args.size() && "More stub args than in model data.");
-      auto model_arg = model.args[index];
-      model_arg.arg  = &arg.value();
-      arg_info.emplace_back(model_arg);
+  llvm::SmallVector<KernelArgInfo, 4> extract_kernel_args_for(llvm::Value* void_kernel_arg_array) const {
+    unsigned index = 0;
+
+    llvm::SmallVector<Value*, 4> real_args;
+
+    for (auto* array_user : void_kernel_arg_array->users()) {
+      if (auto* gep = dyn_cast<GetElementPtrInst>(array_user)) {
+        for (auto* gep_user : gep->users()) {
+          if (auto* store = dyn_cast<StoreInst>(gep_user)) {
+            assert(index < model.n_args);
+            if (auto* cast = dyn_cast<BitCastInst>(store->getValueOperand())) {
+              real_args.push_back(*cast->operand_values().begin());
+            } else {
+              assert(false);
+            }
+            index++;
+          }
+        }
+      }
     }
-    return arg_info;
+
+    llvm::SmallVector<KernelArgInfo, 4> result = model.args;
+    for (auto& res : result) {
+      Value* val = real_args[real_args.size() - 1 - res.arg_pos];
+      if(res.is_pointer && dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType())){
+        //not fake pointer from clang so load it
+        res.indices.insert(res.indices.begin(), -1);
+      }
+      res.arg = val;
+    }
+    return result;
   }
 };
 
@@ -77,7 +99,7 @@ struct KernelInvokeTransformer {
   }
 
   static llvm::Value* get_cu_stream_ptr(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) {
-    auto cu_stream = data.cu_stream;
+    auto* cu_stream = data.cu_stream;
     assert(cu_stream != nullptr && "Require cuda stream!");
     auto* cu_stream_void_ptr = irb.CreateBitOrPointerCast(cu_stream, irb.getInt8PtrTy());
     return cu_stream_void_ptr;
@@ -92,26 +114,56 @@ struct KernelInvokeTransformer {
 
     auto target_callback = decls_->cucorr_register_access;
 
-    auto i16_ty = Type::getInt16Ty(irb.getContext());
-    auto i32_ty = Type::getInt32Ty(irb.getContext());
+    auto* i16_ty          = Type::getInt16Ty(irb.getContext());
+    auto* i32_ty          = Type::getInt32Ty(irb.getContext());
+    auto* void_ptr_ty     = Type::getInt8PtrTy(irb.getContext());
+    //auto* void_ptr_ptr_ty = Type::getInt8PtrTy(irb.getContext())->getPointerTo();
 
-    auto cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
-    auto arg_size           = irb.getInt32(data.args.size());
-    auto arg_access_array   = irb.CreateAlloca(i16_ty, arg_size);
+    auto* cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
+    auto* arg_size           = irb.getInt32(data.args.size());
+    auto* arg_access_array   = irb.CreateAlloca(i16_ty, arg_size);
+    auto* arg_value_array    = irb.CreateAlloca(void_ptr_ty, arg_size);
 
     for (const auto& arg : llvm::enumerate(data.args)) {
+      errs() << "Handling Arg: " << arg.value() << "\n";
       const auto access = access_cast(arg.value().state, arg.value().is_pointer);
-      Value* Idx        = ConstantInt::get(i32_ty, arg.index());
+      Value* idx        = ConstantInt::get(i32_ty, arg.index());
       Value* acc        = ConstantInt::get(i16_ty, access);
-      auto gep          = irb.CreateGEP(i16_ty, arg_access_array, Idx);
-      irb.CreateStore(acc, gep);
+      auto* gep_acc      = irb.CreateGEP(i16_ty, arg_access_array, idx);
+      irb.CreateStore(acc, gep_acc);
+      // only if it is a pointer store the actual pointer in the value array
+      if (arg.value().is_pointer) {
+        assert(arg.value().arg.hasValue());
+
+        auto* gep_val = irb.CreateGEP(void_ptr_ty, arg_value_array, idx);
+
+        errs() << "Trying to convert: " << arg.value() << "\n";
+        errs() << "\n";
+        auto* value_ptr = arg.value().arg.getValue();
+
+        //TODO: parts of a struct might be null if they are only executed conditionally so we should check the parent for null before gep/load
+        for (auto index : arg.value().indices) {
+          auto* subtype = dyn_cast<PointerType>(value_ptr->getType())->getPointerElementType();
+          if (index == -1) {
+            value_ptr = irb.CreateLoad(subtype, value_ptr);
+          } else {
+            value_ptr = irb.CreateStructGEP(subtype, value_ptr, index);
+          }
+        }
+
+        //auto* subtype   = dyn_cast<PointerType>(value_ptr->getType())->getPointerElementType();
+        //value_ptr       = irb.CreateLoad(subtype, value_ptr);
+
+        auto* voided_ptr = irb.CreatePointerCast(value_ptr, void_ptr_ty);
+        irb.CreateStore(voided_ptr, gep_val);
+      }
     }
 
-    auto ptr_ptr_ptr_ty           = PointerType::get(PointerType::get(Type::getInt8PtrTy(irb.getContext()), 0), 0);
-    auto* void_ptr_array_cast     = irb.CreateBitOrPointerCast(data.void_arg_array, ptr_ptr_ptr_ty);
-    Value* args_cucorr_register[] = {void_ptr_array_cast, arg_access_array, arg_size, cu_stream_void_ptr};
+    // auto ptr_ptr_ptr_ty           = PointerType::get(PointerType::get(Type::getInt8PtrTy(irb.getContext()), 0), 0);
+    // auto* void_ptr_array_cast     = irb.CreateBitOrPointerCast(data.void_arg_array, ptr_ptr_ptr_ty);
+    Value* args_cucorr_register[] = {arg_value_array, arg_access_array, arg_size, cu_stream_void_ptr};
     irb.CreateCall(target_callback.f, args_cucorr_register);
-
+    errs() << "OUTPUT:" << *irb.GetInsertPoint()->getParent()->getParent();
     return true;
   }
 };

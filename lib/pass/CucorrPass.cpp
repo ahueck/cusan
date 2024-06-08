@@ -96,7 +96,8 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
   }();
 
   LOG_DEBUG("Using model data file " << kernel_models_file)
-  const auto result       = io::load(this->kernel_models_, kernel_models_file);
+  const auto result = io::load(this->kernel_models_, kernel_models_file);
+
   const auto changed      = llvm::count_if(module.functions(), [&](auto& func) {
                          if (cuda::is_kernel(&func)) {
                            return runOnKernelFunc(func);
@@ -111,6 +112,7 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   if (function.isDeclaration()) {
     return false;
   }
+  LOG_DEBUG("[DEVICE] running on kernel: " << function.getName());
   auto data = device::analyze_device_kernel(&function);
   if (data) {
     if (!cl_cucorr_quiet.getValue()) {
@@ -153,7 +155,6 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
                                 transform::KernelInvokeTransformer{&cucorr_decls_}, function)
         .instrument();
   }
-
   return modified;
 }
 

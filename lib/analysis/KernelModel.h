@@ -35,7 +35,8 @@ inline constexpr const char* access_state_string(AccessState state) {
 }
 
 struct FunctionArg {
-  llvm::Optional<const llvm::Argument*> arg{nullptr};
+  llvm::Optional<llvm::Value*> arg{nullptr};
+  llvm::SmallVector<int32_t> indices;  // gep and loads needed to get the argument from 'actual' args
   unsigned arg_pos{0};
   bool is_pointer{false};
   AccessState state{AccessState::kRW};
@@ -44,7 +45,7 @@ struct FunctionArg {
 struct KernelModel {
   llvm::Optional<const llvm::Function*> kernel{nullptr};
   std::string kernel_name{};
-  //  unsigned kernel_id{0};
+  unsigned n_args{0};  // number of 'actual' args without indirect args accessed by geps/loads
   llvm::SmallVector<FunctionArg, 4> args{};
 };
 

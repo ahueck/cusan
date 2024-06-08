@@ -59,7 +59,7 @@ struct FunctionDecl {
     };
     using ArgTypes = decltype(CucorrFunction::arg_types);
     // TODO address space?
-    ArgTypes arg_types_cucorr_register = {PointerType::get(PointerType::get(Type::getInt8PtrTy(c), 0), 0),
+    ArgTypes arg_types_cucorr_register = {PointerType::get(Type::getInt8PtrTy(c), 0),
                                           Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
     make_function(cucorr_register_access, arg_types_cucorr_register);
 

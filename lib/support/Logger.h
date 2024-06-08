@@ -6,6 +6,7 @@
 #define LIB_CUCORR_LOGGER_H_
 
 #include "llvm/Support/raw_ostream.h"
+#include <mutex>
 
 #ifndef CUCORR_LOG_LEVEL
 /*
@@ -20,6 +21,8 @@
 #endif
 
 namespace cucorr::detail {
+static std::mutex print_mutex;
+
 inline void log(std::string_view msg) {
   llvm::errs() << msg;
 }
@@ -27,19 +30,21 @@ inline void log(std::string_view msg) {
 
 // clang-format off
 #define OO_LOG_LEVEL_MSG(LEVEL_NUM, LEVEL, MSG)                                                                   \
-  if ((LEVEL_NUM) <= CUCORR_LOG_LEVEL) {                                                                          \
+  if constexpr ((LEVEL_NUM) <= CUCORR_LOG_LEVEL) {                                                                \
+    std::lock_guard<std::mutex> lock{cucorr::detail::print_mutex};                                                \
     std::string logging_message;                                                                                  \
     llvm::raw_string_ostream rso(logging_message);                                                                \
     rso << (LEVEL) << LOG_BASENAME_FILE << ":" << __func__ << ":" << __LINE__ << ":" << MSG << "\n"; /* NOLINT */ \
     cucorr::detail::log(rso.str());                                                                               \
   }
 
-#define OO_LOG_LEVEL_MSG_BARE(LEVEL_NUM, LEVEL, MSG)   \
-  if ((LEVEL_NUM) <= CUCORR_LOG_LEVEL) {               \
-    std::string logging_message;                       \
-    llvm::raw_string_ostream rso(logging_message);     \
-    rso << (LEVEL) << " " << MSG << "\n"; /* NOLINT */ \
-    cucorr::detail::log(rso.str());                    \
+#define OO_LOG_LEVEL_MSG_BARE(LEVEL_NUM, LEVEL, MSG)               \
+  if constexpr ((LEVEL_NUM) <= CUCORR_LOG_LEVEL) {                 \
+    std::lock_guard<std::mutex> lock{cucorr::detail::print_mutex}; \
+    std::string logging_message;                                   \
+    llvm::raw_string_ostream rso(logging_message);                 \
+    rso << (LEVEL) << " " << MSG << "\n"; /* NOLINT */             \
+    cucorr::detail::log(rso.str());                                \
   }
 // clang-format on
 

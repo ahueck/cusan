@@ -53,6 +53,7 @@ struct llvm::yaml::MappingTraits<cucorr::FunctionArg> {
     if (!io.outputting()) {
       info.arg = llvm::None;
     }
+    io.mapRequired("indexes", info.indices);
     io.mapRequired("position", info.arg_pos);
     io.mapRequired("access", info.state);
     io.mapRequired("pointer", info.is_pointer);
@@ -69,6 +70,7 @@ struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
     }
     io.mapRequired("name", info.kernel_name);
     io.mapRequired("args", info.args);
+    io.mapRequired("n_args", info.n_args);
     //    info.kernel = {};
   }
 };
