@@ -63,6 +63,10 @@ struct CudaKernelInvokeCollector {
     llvm::SmallVector<KernelArgInfo, 4> result = model.args;
     for (auto& res : result) {
       Value* val = real_args[real_args.size() - 1 - res.arg_pos];
+      //because of ABI? clang might convert struct argument to a (byval)pointer 
+      //but the actual cuda argument is by value so we double check if the expected type matches the actual type
+      //and only if then we load it. I think this should handle all cases since the only case it would fail
+      //is if we do strct* and send that (byval)pointer but that shouldnt be a thing?
       if(res.is_pointer && dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType())){
         //not fake pointer from clang so load it
         res.indices.insert(res.indices.begin(), -1);

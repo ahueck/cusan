@@ -17,26 +17,26 @@ namespace cucorr {
 
 namespace device {
 
-//stolen and modified from clang19 https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
+// stolen and modified from clang19 https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
 static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
   using namespace llvm;
-  SmallVector<Use*, 32> Worklist;
-  SmallPtrSet<Use*, 32> Visited;
+  SmallVector<Use*, 32> worklist;
+  SmallPtrSet<Use*, 32> visited;
 
-  bool IsRead  = false;
-  bool IsWrite = false;
+  bool is_read  = false;
+  bool is_write = false;
 
   for (Use& U : A->uses()) {
-    Visited.insert(&U);
-    Worklist.push_back(&U);
+    visited.insert(&U);
+    worklist.push_back(&U);
   }
 
-  while (!Worklist.empty()) {
-    if (IsWrite && IsRead)
+  while (!worklist.empty()) {
+    if (is_write && is_read)
       // No point in searching further..
       return Attribute::None;
 
-    Use* U         = Worklist.pop_back_val();
+    Use* U         = worklist.pop_back_val();
     Instruction* I = cast<Instruction>(U->getUser());
 
     switch (I->getOpcode()) {
@@ -47,15 +47,15 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
       case Instruction::AddrSpaceCast:
         // The original value is not read/written via this if the new value isn't.
         for (Use& UU : I->uses())
-          if (Visited.insert(&UU).second)
-            Worklist.push_back(&UU);
+          if (visited.insert(&UU).second)
+            worklist.push_back(&UU);
         break;
 
       case Instruction::Call:
       case Instruction::Invoke: {
-        CallBase& CB = cast<CallBase>(*I);
+        auto& CB = cast<CallBase>(*I);
         if (CB.isCallee(U)) {
-          IsRead = true;
+          is_read = true;
           // Note that indirect calls do not capture, see comment in
           // CaptureTracking for context
           continue;
@@ -63,16 +63,16 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
 
         // Given we've explictily handled the callee operand above, what's left
         // must be a data operand (e.g. argument or operand bundle)
-        const unsigned UseIndex = CB.getDataOperandNo(U);
+        const unsigned use_index = CB.getDataOperandNo(U);
 
         // Some intrinsics (for instance ptrmask) do not capture their results,
         // but return results thas alias their pointer argument, and thus should
         // be handled like GEP or addrspacecast above.
         if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(&CB, /*MustPreserveNullness=*/false)) {
           for (Use& UU : CB.uses())
-            if (Visited.insert(&UU).second)
-              Worklist.push_back(&UU);
-        } else if (!CB.doesNotCapture(UseIndex)) {
+            if (visited.insert(&UU).second)
+              worklist.push_back(&UU);
+        } else if (!CB.doesNotCapture(use_index)) {
           if (!CB.onlyReadsMemory())
             // If the callee can save a copy into other memory, then simply
             // scanning uses of the call is insufficient.  We have no way
@@ -82,18 +82,18 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
           // Push users for processing once we finish this one
           if (!I->getType()->isVoidTy())
             for (Use& UU : I->uses())
-              if (Visited.insert(&UU).second)
-                Worklist.push_back(&UU);
+              if (visited.insert(&UU).second)
+                worklist.push_back(&UU);
         }
 
         // The accessors used on call site here do the right thing for calls and
         // invokes with operand bundles.
-        if (CB.doesNotAccessMemory(UseIndex)) {
+        if (CB.doesNotAccessMemory(use_index)) {
           /* nop */
-        } else if (CB.onlyReadsMemory(UseIndex)) {
-          IsRead = true;
-        } else if (CB.dataOperandHasImpliedAttr(UseIndex, Attribute::WriteOnly)) {
-          IsWrite = true;
+        } else if (CB.onlyReadsMemory(use_index)) {
+          is_read = true;
+        } else if (CB.dataOperandHasImpliedAttr(use_index, Attribute::WriteOnly)) {
+          is_write = true;
         } else {
           return Attribute::None;
         }
@@ -106,7 +106,7 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
         if (cast<LoadInst>(I)->isVolatile())
           return Attribute::None;
 
-        IsRead = true;
+        is_read = true;
         break;
 
       case Instruction::Store:
@@ -119,7 +119,7 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
         if (cast<StoreInst>(I)->isVolatile())
           return Attribute::None;
 
-        IsWrite = true;
+        is_write = true;
         break;
 
       case Instruction::ICmp:
@@ -131,14 +131,13 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
     }
   }
 
-  if (IsWrite && IsRead)
+  if (is_write && is_read)
     return Attribute::None;
-  else if (IsRead)
+  if (is_read)
     return Attribute::ReadOnly;
-  else if (IsWrite)
+  if (is_write)
     return Attribute::WriteOnly;
-  else
-    return Attribute::ReadNone;
+  return Attribute::ReadNone;
 }
 
 inline AccessState state(const llvm::AAMemoryBehavior& mem) {
@@ -168,46 +167,62 @@ inline AccessState state(const llvm::Attribute::AttrKind mem) {
   return AccessState::kRW;
 }
 
-void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* value,
-                      llvm::SmallVector<int32_t>& index_stack, unsigned arg_pos) {
+struct ChildInfo {
+  llvm::Value* val;
+  llvm::SmallVector<int32_t> indicies;
+};
+
+void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init_val, unsigned arg_pos) {
   using namespace llvm;
-  Type* value_type = value->getType();
-  if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {
-    auto* elem_type = ptr_type->getPointerElementType();
-    if (elem_type->isStructTy()) {
-      for (User* u : value->users()) {
-        if (auto* gep = dyn_cast<GetElementPtrInst>(u)) {
-          auto gep_indicies = gep->indices();
-          for (unsigned i = 1; i < gep->getNumIndices(); i++) {
-            auto* index       = gep_indicies.begin() + i;
-            auto* index_value = dyn_cast<ConstantInt>(index->get());
-            //TODO: handle gracefully if indexing into array and similar "dynamic" geps
-            assert(index_value);
-            index_stack.push_back((int32_t)index_value->getSExtValue());
-          }
+  llvm::SmallVector<ChildInfo, 32> workList;
+  workList.push_back({init_val, {}});
 
-          collect_children(args, gep, index_stack, arg_pos);
+  while (!workList.empty()) {
+    //not nice making copies of the stack all the time idk
+    auto curr_info = workList.pop_back_val();
+    auto* value = curr_info.val;
+    auto index_stack = curr_info.indicies;
 
-          for (unsigned i = 1; i < gep->getNumIndices(); i++) {
-            index_stack.pop_back();
+    Type* value_type = value->getType();
+    if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {
+      auto* elem_type = ptr_type->getPointerElementType();
+      if (elem_type->isStructTy()) {
+        for (User* u : value->users()) {
+          if (auto* gep = dyn_cast<GetElementPtrInst>(u)) {
+            auto gep_indicies = gep->indices();
+            for (unsigned i = 1; i < gep->getNumIndices(); i++) {
+              auto* index       = gep_indicies.begin() + i;
+              auto* index_value = dyn_cast<ConstantInt>(index->get());
+              // TODO: handle gracefully if indexing into array and similar "dynamic" geps
+              assert(index_value);
+              index_stack.push_back((int32_t)index_value->getSExtValue());
+            }
+
+            workList.push_back({gep, index_stack});
+            //collect_children(args, gep, index_stack, arg_pos);
+
+            //for (unsigned i = 1; i < gep->getNumIndices(); i++) {
+            //  index_stack.pop_back();
+            //}
           }
         }
       }
-    }
 
-    for (User* u : value->users()) {
-      if (auto* load = dyn_cast<LoadInst>(u)) {
-        index_stack.push_back(-1);
-        collect_children(args, load, index_stack, arg_pos);
-        const auto res = determinePointerAccessAttrs(load);
-        const FunctionArg kernel_arg{load, index_stack, arg_pos, true, state(res)};
-        args.push_back(kernel_arg);
-        index_stack.pop_back();
+      for (User* u : value->users()) {
+        if (auto* load = dyn_cast<LoadInst>(u)) {
+          index_stack.push_back(-1);
+          workList.push_back({load, index_stack});
+          //collect_children(args, load, index_stack, arg_pos);
+          const auto res = determinePointerAccessAttrs(load);
+          const FunctionArg kernel_arg{load, index_stack, arg_pos, true, state(res)};
+          args.push_back(kernel_arg);
+          //index_stack.pop_back();
+        }
       }
-    }
 
-  } else {
-    return;
+    } else {
+      return;
+    }
   }
 }
 
@@ -233,8 +248,7 @@ void attribute_value(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* value
                  << " WriteOnly:" << mem_behavior.isAssumedWriteOnly() << "\n";
     const FunctionArg kernel_arg{value, {}, arg_pos, true, state(res2)};
     args.emplace_back(kernel_arg);
-    llvm::SmallVector<int32_t> index_stack;
-    collect_children(args, value, index_stack, arg_pos);
+    collect_children(args, value, arg_pos);
   } else {
     const FunctionArg kernel_arg{value, {}, arg_pos, false, AccessState::kRW};
     args.emplace_back(kernel_arg);
@@ -255,6 +269,8 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
   InformationCache info_cache(*module, ag, allocator, /* CGSCC */ nullptr);
 
   Attributor attrib(functions, info_cache, cg_updater);
+
+  errs() << "Attributing " << kernel->getName() << "\n" << *kernel << "\n";
 
   llvm::SmallVector<FunctionArg, 4> args{};
   for (const auto& arg : llvm::enumerate(kernel->args())) {

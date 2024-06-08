@@ -8,7 +8,7 @@
 // RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 // clang-format on
 
-// CHECK-DAG: d
+// CHECK-DAG: data race
 // CHECK-DAG: [Error] sync
 
 // CHECK-SYNC-NOT: data race
