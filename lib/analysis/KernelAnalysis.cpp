@@ -18,7 +18,7 @@ namespace cucorr {
 namespace device {
 
 // stolen and modified from clang19 https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
-static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
+static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value) {
   using namespace llvm;
   SmallVector<Use*, 32> worklist;
   SmallPtrSet<Use*, 32> visited;
@@ -26,9 +26,9 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
   bool is_read  = false;
   bool is_write = false;
 
-  for (Use& U : A->uses()) {
-    visited.insert(&U);
-    worklist.push_back(&U);
+  for (Use& u : value->uses()) {
+    visited.insert(&u);
+    worklist.push_back(&u);
   }
 
   while (!worklist.empty()) {
@@ -36,25 +36,25 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
       // No point in searching further..
       return Attribute::None;
 
-    Use* U         = worklist.pop_back_val();
-    Instruction* I = cast<Instruction>(U->getUser());
+    Use* u         = worklist.pop_back_val();
+    Instruction* i = cast<Instruction>(u->getUser());
 
-    switch (I->getOpcode()) {
+    switch (i->getOpcode()) {
       case Instruction::BitCast:
       case Instruction::GetElementPtr:
       case Instruction::PHI:
       case Instruction::Select:
       case Instruction::AddrSpaceCast:
         // The original value is not read/written via this if the new value isn't.
-        for (Use& UU : I->uses())
-          if (visited.insert(&UU).second)
-            worklist.push_back(&UU);
+        for (Use& uu : i->uses())
+          if (visited.insert(&uu).second)
+            worklist.push_back(&uu);
         break;
 
       case Instruction::Call:
       case Instruction::Invoke: {
-        auto& CB = cast<CallBase>(*I);
-        if (CB.isCallee(U)) {
+        auto& cb = cast<CallBase>(*i);
+        if (cb.isCallee(u)) {
           is_read = true;
           // Note that indirect calls do not capture, see comment in
           // CaptureTracking for context
@@ -63,36 +63,36 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
 
         // Given we've explictily handled the callee operand above, what's left
         // must be a data operand (e.g. argument or operand bundle)
-        const unsigned use_index = CB.getDataOperandNo(U);
+        const unsigned use_index = cb.getDataOperandNo(u);
 
         // Some intrinsics (for instance ptrmask) do not capture their results,
         // but return results thas alias their pointer argument, and thus should
         // be handled like GEP or addrspacecast above.
-        if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(&CB, /*MustPreserveNullness=*/false)) {
-          for (Use& UU : CB.uses())
-            if (visited.insert(&UU).second)
-              worklist.push_back(&UU);
-        } else if (!CB.doesNotCapture(use_index)) {
-          if (!CB.onlyReadsMemory())
+        if (isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(&cb, /*MustPreserveNullness=*/false)) {
+          for (Use& uu : cb.uses())
+            if (visited.insert(&uu).second)
+              worklist.push_back(&uu);
+        } else if (!cb.doesNotCapture(use_index)) {
+          if (!cb.onlyReadsMemory())
             // If the callee can save a copy into other memory, then simply
             // scanning uses of the call is insufficient.  We have no way
             // of tracking copies of the pointer through memory to see
             // if a reloaded copy is written to, thus we must give up.
             return Attribute::None;
           // Push users for processing once we finish this one
-          if (!I->getType()->isVoidTy())
-            for (Use& UU : I->uses())
+          if (!i->getType()->isVoidTy())
+            for (Use& UU : i->uses())
               if (visited.insert(&UU).second)
                 worklist.push_back(&UU);
         }
 
         // The accessors used on call site here do the right thing for calls and
         // invokes with operand bundles.
-        if (CB.doesNotAccessMemory(use_index)) {
+        if (cb.doesNotAccessMemory(use_index)) {
           /* nop */
-        } else if (CB.onlyReadsMemory(use_index)) {
+        } else if (cb.onlyReadsMemory(use_index)) {
           is_read = true;
-        } else if (CB.dataOperandHasImpliedAttr(use_index, Attribute::WriteOnly)) {
+        } else if (cb.dataOperandHasImpliedAttr(use_index, Attribute::WriteOnly)) {
           is_write = true;
         } else {
           return Attribute::None;
@@ -103,20 +103,20 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* A) {
       case Instruction::Load:
         // A volatile load has side effects beyond what readonly can be relied
         // upon.
-        if (cast<LoadInst>(I)->isVolatile())
+        if (cast<LoadInst>(i)->isVolatile())
           return Attribute::None;
 
         is_read = true;
         break;
 
       case Instruction::Store:
-        if (cast<StoreInst>(I)->getValueOperand() == *U)
+        if (cast<StoreInst>(i)->getValueOperand() == *u)
           // untrackable capture
           return Attribute::None;
 
         // A volatile store has side effects beyond what writeonly can be relied
         // upon.
-        if (cast<StoreInst>(I)->isVolatile())
+        if (cast<StoreInst>(i)->isVolatile())
           return Attribute::None;
 
         is_write = true;
@@ -174,49 +174,52 @@ struct ChildInfo {
 
 void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init_val, unsigned arg_pos) {
   using namespace llvm;
-  llvm::SmallVector<ChildInfo, 32> workList;
-  workList.push_back({init_val, {}});
+  llvm::SmallVector<ChildInfo, 32> work_list;
+  work_list.push_back({init_val, {}});
 
-  while (!workList.empty()) {
-    //not nice making copies of the stack all the time idk
-    auto curr_info = workList.pop_back_val();
-    auto* value = curr_info.val;
+  while (!work_list.empty()) {
+    // not nice making copies of the stack all the time idk
+    auto curr_info   = work_list.pop_back_val();
+    auto* value      = curr_info.val;
     auto index_stack = curr_info.indicies;
 
     Type* value_type = value->getType();
     if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {
       auto* elem_type = ptr_type->getPointerElementType();
       if (elem_type->isStructTy()) {
-        for (User* u : value->users()) {
-          if (auto* gep = dyn_cast<GetElementPtrInst>(u)) {
+        for (User* value_user : value->users()) {
+          if (auto* gep = dyn_cast<GetElementPtrInst>(value_user)) {
             auto gep_indicies = gep->indices();
+            auto sub_index_stack = index_stack;
             for (unsigned i = 1; i < gep->getNumIndices(); i++) {
-              auto* index       = gep_indicies.begin() + i;
-              auto* index_value = dyn_cast<ConstantInt>(index->get());
-              // TODO: handle gracefully if indexing into array and similar "dynamic" geps
-              assert(index_value);
-              index_stack.push_back((int32_t)index_value->getSExtValue());
+              auto* index = gep_indicies.begin() + i;
+              if (auto* index_value = dyn_cast<ConstantInt>(index->get())) {
+                sub_index_stack.push_back((int32_t)index_value->getSExtValue());
+                work_list.push_back({gep, sub_index_stack});
+              } else {
+                LOG_WARNING("Failed to determine access pattern for argument '"
+                            << arg_pos << "' since it uses dynamic gep indices");
+                break;
+              }
             }
-
-            workList.push_back({gep, index_stack});
-            //collect_children(args, gep, index_stack, arg_pos);
-
-            //for (unsigned i = 1; i < gep->getNumIndices(); i++) {
-            //  index_stack.pop_back();
-            //}
           }
         }
       }
-
-      for (User* u : value->users()) {
-        if (auto* load = dyn_cast<LoadInst>(u)) {
-          index_stack.push_back(-1);
-          workList.push_back({load, index_stack});
-          //collect_children(args, load, index_stack, arg_pos);
-          const auto res = determinePointerAccessAttrs(load);
-          const FunctionArg kernel_arg{load, index_stack, arg_pos, true, state(res)};
-          args.push_back(kernel_arg);
-          //index_stack.pop_back();
+      //{
+      //  const auto res = determinePointerAccessAttrs(load);
+      //  const FunctionArg kernel_arg{load, index_stack, arg_pos, true, state(res)};
+      //  args.push_back(kernel_arg);
+      //}
+      for (User* value_user : value->users()) {
+        if (auto* load = dyn_cast<LoadInst>(value_user)) {
+          if (load->getType()->isPointerTy()) {
+            auto sub_index_stack = index_stack;
+            sub_index_stack.push_back(-1);
+            work_list.push_back({load, sub_index_stack});
+            const auto res = determinePointerAccessAttrs(load);
+            const FunctionArg kernel_arg{load, sub_index_stack, arg_pos, true, state(res)};
+            args.push_back(kernel_arg);
+          }
         }
       }
 
@@ -275,7 +278,7 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
   llvm::SmallVector<FunctionArg, 4> args{};
   for (const auto& arg : llvm::enumerate(kernel->args())) {
     llvm::SmallVector<int32_t> index_stack = {};
-    attribute_value(args, &arg.value(), attrib, arg.index());
+    attribute_value(args, &arg.value(), attrib, (uint32_t)arg.index());
   }
 
   KernelModel model{kernel, std::string{kernel->getName()}, (unsigned int)kernel->arg_size(), args};
@@ -298,7 +301,7 @@ std::optional<KernelModel> analyze_device_kernel(llvm::Function* f) {
 
 namespace host {
 
-std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelHandler& models) {
+std::optional<KernelModel> kernel_model_for_stub(llvm::Function* func, const ModelHandler& models) {
   const auto stub_name = [&](const auto& name) {
     auto stub_name    = std::string{name};
     const auto prefix = std::string{"__device_stub__"};
@@ -307,13 +310,10 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* f, const ModelH
       stub_name.erase(pos, prefix.length());
     }
     return stub_name;
-  }(util::try_demangle(*f));
+  }(util::try_demangle(*func));
 
   const auto result = llvm::find_if(models.models, [&stub_name](const auto& model_) {
-    if (llvm::StringRef(util::demangle(model_.kernel_name)).startswith(stub_name)) {
-      return true;
-    }
-    return false;
+    return llvm::StringRef(util::demangle(model_.kernel_name)).startswith(stub_name);
   });
 
   if (result != std::end(models.models)) {

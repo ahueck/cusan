@@ -43,6 +43,11 @@ struct CudaKernelInvokeCollector {
     unsigned index = 0;
 
     llvm::SmallVector<Value*, 4> real_args;
+    errs() << "Model: " << model.kernel_name << "\n" << model.n_args << " ARGS:\n";
+    for(auto arg: model.args){
+      errs() << arg << "\n";
+    }
+    
 
     for (auto* array_user : void_kernel_arg_array->users()) {
       if (auto* gep = dyn_cast<GetElementPtrInst>(array_user)) {

@@ -13,7 +13,7 @@
  * Usually set at compile time: -DCUCORR_LOG_LEVEL=<N>, N in [0, 3] for output
  * 3 being most verbose
  */
-#define CUCORR_LOG_LEVEL 3
+#define CUCORR_LOG_LEVEL 2
 #endif
 
 #ifndef LOG_BASENAME_FILE
