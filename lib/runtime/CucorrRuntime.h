@@ -52,6 +52,8 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags);
 void _cucorr_host_alloc(void** ptr, size_t size, unsigned int flags);
 void _cucorr_host_free(void* ptr);
+void _cucorr_managed_alloc(void** ptr, size_t size, unsigned int flags);
+void _cucorr_managed_free(void* ptr);
 void _cucorr_host_register(void* ptr, size_t size, unsigned int flags);
 void _cucorr_host_unregister(void* ptr);
 #ifdef __cplusplus

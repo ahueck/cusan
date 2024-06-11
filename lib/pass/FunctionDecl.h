@@ -27,6 +27,7 @@ struct FunctionDecl {
   CucorrFunction cucorr_memcpy{"_cucorr_memcpy"};
   CucorrFunction cucorr_stream_wait_event{"_cucorr_stream_wait_event"};
   CucorrFunction cucorr_host_alloc{"_cucorr_host_alloc"};
+  CucorrFunction cucorr_managed_alloc{"_cucorr_managed_alloc"};
   CucorrFunction cucorr_host_free{"_cucorr_host_free"};
   CucorrFunction cucorr_host_register{"_cucorr_host_register"};
   CucorrFunction cucorr_host_unregister{"_cucorr_host_unregister"};
@@ -116,6 +117,11 @@ struct FunctionDecl {
 
     ArgTypes arg_types_host_free = {Type::getInt8PtrTy(c)};
     make_function(cucorr_host_free, arg_types_host_free);
+
+    ArgTypes arg_types_managed_alloc = {Type::getInt8PtrTy(c), size_t_ty, Type::getInt32Ty(c)};
+    make_function(cucorr_managed_alloc, arg_types_managed_alloc);
+
+    
   }
 };
 
