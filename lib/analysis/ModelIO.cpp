@@ -51,16 +51,30 @@ template <>
 struct llvm::yaml::MappingTraits<cucorr::FunctionArg> {
   static void mapping(IO& io, cucorr::FunctionArg& info) {
     if (!io.outputting()) {
-      info.arg = llvm::None;
+      info.value = llvm::None;
     }
-    io.mapRequired("indexes", info.indices);
     io.mapRequired("position", info.arg_pos);
+    io.mapRequired("pointer", info.is_pointer);
+    io.mapRequired("subargs", info.subargs);
+  }
+};
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionArg)
+
+template <>
+struct llvm::yaml::MappingTraits<cucorr::FunctionSubArg> {
+  static void mapping(IO& io, cucorr::FunctionSubArg& info) {
+    if (!io.outputting()) {
+      info.value = llvm::None;
+    }
+    io.mapRequired("indices", info.indices);
     io.mapRequired("access", info.state);
     io.mapRequired("pointer", info.is_pointer);
   }
 };
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionArg)
+LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionSubArg)
+
 
 template <>
 struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
@@ -70,7 +84,6 @@ struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
     }
     io.mapRequired("name", info.kernel_name);
     io.mapRequired("args", info.args);
-    io.mapRequired("n_args", info.n_args);
     //    info.kernel = {};
   }
 };

@@ -28,11 +28,12 @@ struct CudaKernelInvokeCollector {
   }
 
   llvm::Optional<KernelInvokeData> match(llvm::CallBase& cb, Function& callee) const {
+    errs() << "Func:" << callee.getFunction() << "\n";
     if (callee.getName() == "cudaLaunchKernel") {
       auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
       auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
-      //auto* cb_parent_function    = cb.getFunction();
-      auto kernel_args            = extract_kernel_args_for(void_kernel_arg_array);
+      // auto* cb_parent_function    = cb.getFunction();
+      auto kernel_args = extract_kernel_args_for(void_kernel_arg_array);
 
       return KernelInvokeData{kernel_args, void_kernel_arg_array, cu_stream_handle};
     }
@@ -43,17 +44,17 @@ struct CudaKernelInvokeCollector {
     unsigned index = 0;
 
     llvm::SmallVector<Value*, 4> real_args;
-    errs() << "Model: " << model.kernel_name << "\n" << model.n_args << " ARGS:\n";
-    for(auto arg: model.args){
+    errs() << "Arg: " << void_kernel_arg_array;
+    errs() << "Model: " << model.kernel_name << "\n" << model.args.size() << " ARGS:\n";
+    for (auto arg : model.args) {
       errs() << arg << "\n";
     }
-    
 
     for (auto* array_user : void_kernel_arg_array->users()) {
       if (auto* gep = dyn_cast<GetElementPtrInst>(array_user)) {
         for (auto* gep_user : gep->users()) {
           if (auto* store = dyn_cast<StoreInst>(gep_user)) {
-            assert(index < model.n_args);
+            assert(index < model.args.size());
             if (auto* cast = dyn_cast<BitCastInst>(store->getValueOperand())) {
               real_args.push_back(*cast->operand_values().begin());
             } else {
@@ -68,15 +69,21 @@ struct CudaKernelInvokeCollector {
     llvm::SmallVector<KernelArgInfo, 4> result = model.args;
     for (auto& res : result) {
       Value* val = real_args[real_args.size() - 1 - res.arg_pos];
-      //because of ABI? clang might convert struct argument to a (byval)pointer 
-      //but the actual cuda argument is by value so we double check if the expected type matches the actual type
-      //and only if then we load it. I think this should handle all cases since the only case it would fail
-      //is if we do strct* and send that (byval)pointer but that shouldnt be a thing?
-      if(res.is_pointer && dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType())){
-        //not fake pointer from clang so load it
-        res.indices.insert(res.indices.begin(), -1);
+      // because of ABI? clang might convert struct argument to a (byval)pointer
+      // but the actual cuda argument is by value so we double check if the expected type matches the actual type
+      // and only if then we load it. I think this should handle all cases since the only case it would fail
+      // is if we do strct* and send that (byval)pointer but that shouldnt be a thing?
+      bool real_ptr =
+          res.is_pointer && (dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType()) != nullptr);
+      
+      // not fake pointer from clang so load it before getting subargs
+      for (auto& sub_arg : res.subargs) {
+        if (real_ptr) {
+          sub_arg.indices.insert(sub_arg.indices.begin(), -1);
+        }
+        sub_arg.value = val;
       }
-      res.arg = val;
+      res.value = val;
     }
     return result;
   }
@@ -115,7 +122,15 @@ struct KernelInvokeTransformer {
   }
 
   bool generate_compound_cb(const analysis::CudaKernelInvokeCollector::Data& data, IRBuilder<>& irb) const {
-    const bool should_transform = llvm::count_if(data.args, [&](const auto& elem) { return elem.is_pointer; }) > 0;
+    const bool should_transform =
+        llvm::count_if(data.args, [&](const auto& elem) {
+          return llvm::count_if(elem.subargs, [&](const auto& sub_elem) { return sub_elem.is_pointer; }) > 0;
+        }) > 0;
+      
+    uint32_t n_subargs = 0;
+    for (const auto& arg : data.args) {
+      n_subargs += arg.subargs.size();
+    }
 
     if (!should_transform) {
       return false;
@@ -123,53 +138,51 @@ struct KernelInvokeTransformer {
 
     auto target_callback = decls_->cucorr_register_access;
 
-    auto* i16_ty          = Type::getInt16Ty(irb.getContext());
-    auto* i32_ty          = Type::getInt32Ty(irb.getContext());
-    auto* void_ptr_ty     = Type::getInt8PtrTy(irb.getContext());
-    //auto* void_ptr_ptr_ty = Type::getInt8PtrTy(irb.getContext())->getPointerTo();
+    auto* i16_ty      = Type::getInt16Ty(irb.getContext());
+    auto* i32_ty      = Type::getInt32Ty(irb.getContext());
+    auto* void_ptr_ty = Type::getInt8PtrTy(irb.getContext());
+    // auto* void_ptr_ptr_ty = Type::getInt8PtrTy(irb.getContext())->getPointerTo();
 
     auto* cu_stream_void_ptr = get_cu_stream_ptr(data, irb);
-    auto* arg_size           = irb.getInt32(data.args.size());
+    auto* arg_size           = irb.getInt32(n_subargs);
     auto* arg_access_array   = irb.CreateAlloca(i16_ty, arg_size);
     auto* arg_value_array    = irb.CreateAlloca(void_ptr_ty, arg_size);
 
-    for (const auto& arg : llvm::enumerate(data.args)) {
-      errs() << "Handling Arg: " << arg.value() << "\n";
-      const auto access = access_cast(arg.value().state, arg.value().is_pointer);
-      Value* idx        = ConstantInt::get(i32_ty, arg.index());
-      Value* acc        = ConstantInt::get(i16_ty, access);
-      auto* gep_acc      = irb.CreateGEP(i16_ty, arg_access_array, idx);
-      irb.CreateStore(acc, gep_acc);
-      // only if it is a pointer store the actual pointer in the value array
-      if (arg.value().is_pointer) {
-        assert(arg.value().arg.hasValue());
+    size_t arg_array_index = 0;
+    for (const auto& arg : data.args) {
+      errs() << "Handling Arg: " << arg << "\n";
+      for (const auto& sub_arg : arg.subargs) {
+        errs() << "   subarg: " << sub_arg << "\n";
+        const auto access = access_cast(sub_arg.state, sub_arg.is_pointer);
+        Value* idx        = ConstantInt::get(i32_ty, arg_array_index);
+        Value* acc        = ConstantInt::get(i16_ty, access);
+        auto* gep_acc     = irb.CreateGEP(i16_ty, arg_access_array, idx);
+        irb.CreateStore(acc, gep_acc);
+        // only if it is a pointer store the actual pointer in the value array
+        if (sub_arg.is_pointer) {
+          assert(arg.value.hasValue());
 
-        auto* gep_val = irb.CreateGEP(void_ptr_ty, arg_value_array, idx);
+          auto* value_ptr = arg.value.getValue();
 
-        errs() << "Trying to convert: " << arg.value() << "\n";
-        errs() << "\n";
-        auto* value_ptr = arg.value().arg.getValue();
-
-        //TODO: parts of a struct might be null if they are only executed conditionally so we should check the parent for null before gep/load
-        for (auto index : arg.value().indices) {
-          auto* subtype = dyn_cast<PointerType>(value_ptr->getType())->getPointerElementType();
-          if (index == -1) {
-            value_ptr = irb.CreateLoad(subtype, value_ptr);
-          } else {
-            value_ptr = irb.CreateStructGEP(subtype, value_ptr, index);
+          // TODO: parts of a struct might be null if they are only executed conditionally so we should check the parent
+          // for null before gep/load
+          for (auto gep_index : sub_arg.indices) {
+            auto* subtype = dyn_cast<PointerType>(value_ptr->getType())->getPointerElementType();
+            if (gep_index == -1) {
+              value_ptr = irb.CreateLoad(subtype, value_ptr);
+            } else {
+              value_ptr = irb.CreateStructGEP(subtype, value_ptr, gep_index);
+            }
           }
+
+          auto* voided_ptr    = irb.CreatePointerCast(value_ptr, void_ptr_ty);
+          auto* gep_val_array = irb.CreateGEP(void_ptr_ty, arg_value_array, idx);
+          irb.CreateStore(voided_ptr, gep_val_array);
+          arg_array_index += 1;
         }
-
-        //auto* subtype   = dyn_cast<PointerType>(value_ptr->getType())->getPointerElementType();
-        //value_ptr       = irb.CreateLoad(subtype, value_ptr);
-
-        auto* voided_ptr = irb.CreatePointerCast(value_ptr, void_ptr_ty);
-        irb.CreateStore(voided_ptr, gep_val);
       }
     }
 
-    // auto ptr_ptr_ptr_ty           = PointerType::get(PointerType::get(Type::getInt8PtrTy(irb.getContext()), 0), 0);
-    // auto* void_ptr_array_cast     = irb.CreateBitOrPointerCast(data.void_arg_array, ptr_ptr_ptr_ty);
     Value* args_cucorr_register[] = {arg_value_array, arg_access_array, arg_size, cu_stream_void_ptr};
     irb.CreateCall(target_callback.f, args_cucorr_register);
     errs() << "OUTPUT:" << *irb.GetInsertPoint()->getParent()->getParent();
@@ -502,6 +515,22 @@ class CudaHostFree : public SimpleInstrumenter<CudaHostFree> {
     return {ptr};
   }
 };
+
+class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
+ public:
+  CudaMallocManaged(callback::FunctionDecl* decls) {
+    setup("cudaMallocManaged", &decls->cucorr_managed_alloc.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* ptr)
+    assert(args.size() == 3);
+    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* size  = args[1];
+    auto* flags = args[2];
+    return {ptr, size, flags};
+  }
+};
+
 
 }  // namespace transform
 }  // namespace cucorr

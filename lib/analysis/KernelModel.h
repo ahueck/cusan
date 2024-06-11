@@ -34,18 +34,25 @@ inline constexpr const char* access_state_string(AccessState state) {
   }
 }
 
-struct FunctionArg {
-  llvm::Optional<llvm::Value*> arg{nullptr};
+struct FunctionSubArg {
+  llvm::Optional<llvm::Value*> value{nullptr};
   llvm::SmallVector<int32_t> indices;  // gep and loads needed to get the argument from 'actual' args
-  unsigned arg_pos{0};
   bool is_pointer{false};
   AccessState state{AccessState::kRW};
 };
 
+struct FunctionArg {
+  llvm::Optional<llvm::Value*> value{nullptr};
+  unsigned arg_pos{0};
+  bool is_pointer{false};
+  llvm::SmallVector<FunctionSubArg> subargs;
+};
+
+
+
 struct KernelModel {
   llvm::Optional<const llvm::Function*> kernel{nullptr};
   std::string kernel_name{};
-  unsigned n_args{0};  // number of 'actual' args without indirect args accessed by geps/loads
   llvm::SmallVector<FunctionArg, 4> args{};
 };
 
@@ -57,6 +64,7 @@ struct ModelHandler {
 llvm::raw_ostream& operator<<(llvm::raw_ostream&, const ModelHandler&);
 llvm::raw_ostream& operator<<(llvm::raw_ostream&, const KernelModel&);
 llvm::raw_ostream& operator<<(llvm::raw_ostream&, const FunctionArg&);
+llvm::raw_ostream& operator<<(llvm::raw_ostream&, const FunctionSubArg&);
 
 namespace io {
 [[nodiscard]] llvm::ErrorOr<bool> store(const ModelHandler& kernel_db, std::string_view file);

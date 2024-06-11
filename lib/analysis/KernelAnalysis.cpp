@@ -90,7 +90,7 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value)
         // invokes with operand bundles.
         if (cb.doesNotAccessMemory(use_index)) {
           /* nop */
-        } else if (cb.onlyReadsMemory(use_index)) {
+        } else if (cb.onlyReadsMemory() || cb.onlyReadsMemory(use_index)) {
           is_read = true;
         } else if (cb.dataOperandHasImpliedAttr(use_index, Attribute::WriteOnly)) {
           is_write = true;
@@ -172,7 +172,7 @@ struct ChildInfo {
   llvm::SmallVector<int32_t> indicies;
 };
 
-void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init_val, unsigned arg_pos) {
+void collect_children(FunctionArg& arg, llvm::Value* init_val) {
   using namespace llvm;
   llvm::SmallVector<ChildInfo, 32> work_list;
   work_list.push_back({init_val, {}});
@@ -198,7 +198,7 @@ void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init
                 work_list.push_back({gep, sub_index_stack});
               } else {
                 LOG_WARNING("Failed to determine access pattern for argument '"
-                            << arg_pos << "' since it uses dynamic gep indices");
+                            << arg.arg_pos << "' since it uses dynamic gep indices");
                 break;
               }
             }
@@ -217,8 +217,9 @@ void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init
             sub_index_stack.push_back(-1);
             work_list.push_back({load, sub_index_stack});
             const auto res = determinePointerAccessAttrs(load);
-            const FunctionArg kernel_arg{load, sub_index_stack, arg_pos, true, state(res)};
-            args.push_back(kernel_arg);
+            //const FunctionArg kernel_arg{load, std::move(sub_index_stack), arg_pos, true, state(res)};
+            const FunctionSubArg sub_arg{load, std::move(sub_index_stack), true, state(res)};
+            arg.subargs.push_back(sub_arg);
           }
         }
       }
@@ -229,9 +230,10 @@ void collect_children(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* init
   }
 }
 
-void attribute_value(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* value, llvm::Attributor& attrib,
-                     unsigned arg_pos) {
+void attribute_value(FunctionArg& arg, llvm::Attributor& attrib
+                     ) {
   using namespace llvm;
+  auto* value = arg.value.getValue();
   Type* value_type = value->getType();
   llvm::errs() << "Attributing Value: " << *value << " of type: " << *value_type << "\n";
 
@@ -249,12 +251,13 @@ void attribute_value(llvm::SmallVector<FunctionArg, 4>& args, llvm::Value* value
     llvm::errs() << "    Got ptr: ReadNone:" << mem_behavior.isAssumedReadNone()
                  << " ReadOnly:" << mem_behavior.isAssumedReadOnly()
                  << " WriteOnly:" << mem_behavior.isAssumedWriteOnly() << "\n";
-    const FunctionArg kernel_arg{value, {}, arg_pos, true, state(res2)};
-    args.emplace_back(kernel_arg);
-    collect_children(args, value, arg_pos);
+    const FunctionSubArg kernel_arg{value, {}, true, state(res2)};
+    arg.is_pointer = true;
+    arg.subargs.emplace_back(kernel_arg);
+    collect_children(arg, value);
   } else {
-    const FunctionArg kernel_arg{value, {}, arg_pos, false, AccessState::kRW};
-    args.emplace_back(kernel_arg);
+    const FunctionSubArg kernel_arg{value, {}, false, AccessState::kRW};
+    arg.subargs.emplace_back(kernel_arg);
   }
 }
 
@@ -273,15 +276,19 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
 
   Attributor attrib(functions, info_cache, cg_updater);
 
-  errs() << "Attributing " << kernel->getName() << "\n" << *kernel << "\n";
+  LOG_DEBUG("Attributing " << kernel->getName() << "\n" << *kernel << "\n")
 
   llvm::SmallVector<FunctionArg, 4> args{};
-  for (const auto& arg : llvm::enumerate(kernel->args())) {
+  for (const auto& arg_value : llvm::enumerate(kernel->args())) {
     llvm::SmallVector<int32_t> index_stack = {};
-    attribute_value(args, &arg.value(), attrib, (uint32_t)arg.index());
+    FunctionArg arg{};
+    arg.arg_pos = (uint32_t)arg_value.index();
+    arg.value = &arg_value.value();
+    attribute_value(arg, attrib);
+    args.push_back(std::move(arg));
   }
 
-  KernelModel model{kernel, std::string{kernel->getName()}, (unsigned int)kernel->arg_size(), args};
+  KernelModel model{kernel, std::string{kernel->getName()}, args};
 
   return model;
 }

@@ -42,11 +42,10 @@ bool ModelHandler::insert(const cucorr::KernelModel& model) {
 
   return false;
 }
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionSubArg& arg) {
   os << "[";
-  if (arg.arg.hasValue()) {
-    os << *arg.arg.getValue();
+  if (arg.value.hasValue()) {
+    os << *arg.value.getValue();
   } else {
     os << "<null>";
   }
@@ -59,10 +58,27 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
   } else {
     os << ", indicies:[]";
   }
-  os << ", pos: " << arg.arg_pos;
   os << ", ptr: " << static_cast<int>(arg.is_pointer) << ", rw: " << arg.state << "]";
   return os;
 }
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
+  os << "[";
+  if (arg.value.hasValue()) {
+    os << *arg.value.getValue();
+  } else {
+    os << "<null>";
+  }
+  os << ", subArgs: [";
+  for(const auto& arg: arg.subargs){
+    os << arg;
+  }
+  os << "]";
+  os << ", ptr: " << static_cast<int>(arg.is_pointer) << ", pos: " << arg.arg_pos << "]";
+  return os;
+}
+
+
+
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ModelHandler& arg) {
   const auto& models = arg.models;
