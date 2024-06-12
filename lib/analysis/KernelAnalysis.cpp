@@ -36,8 +36,8 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value)
       // No point in searching further..
       return Attribute::None;
 
-    Use* u         = worklist.pop_back_val();
-    Instruction* i = cast<Instruction>(u->getUser());
+    Use* u  = worklist.pop_back_val();
+    auto* i = cast<Instruction>(u->getUser());
 
     switch (i->getOpcode()) {
       case Instruction::BitCast:
@@ -95,7 +95,18 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value)
         } else if (cb.dataOperandHasImpliedAttr(use_index, Attribute::WriteOnly)) {
           is_write = true;
         } else {
-          return Attribute::None;
+          // auto called = cb.getCalledFunction();
+          // if(visited_funcs.contains(called)){
+          //   LOG_WARNING("Not handling recursive kernels right now");
+          //   return Attribute::None;
+          // }
+          // if(called->isDeclaration()){
+          //   LOG_WARNING("Could not determine pointer access since calling function outside of this cu: " << called);
+          //   return Attribute::None;
+          // }
+          // visited_funcs.insert(called);
+          // called->getArg(use_index);
+          return Attribute::ReadNone;
         }
         break;
       }
@@ -172,10 +183,11 @@ struct ChildInfo {
   llvm::SmallVector<int32_t> indicies;
 };
 
-void collect_children(FunctionArg& arg, llvm::Value* init_val) {
+void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {}, llvm::SmallSet<llvm::Function*, 8> visited_funcs = {}) {
   using namespace llvm;
   llvm::SmallVector<ChildInfo, 32> work_list;
-  work_list.push_back({init_val, {}});
+  work_list.push_back({init_val, std::move(initial_index_stack)});
+  
 
   while (!work_list.empty()) {
     // not nice making copies of the stack all the time idk
@@ -186,10 +198,38 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val) {
     Type* value_type = value->getType();
     if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {
       auto* elem_type = ptr_type->getPointerElementType();
-      if (elem_type->isStructTy()) {
+      if (elem_type->isStructTy() || elem_type->isPointerTy()) {
         for (User* value_user : value->users()) {
-          if (auto* gep = dyn_cast<GetElementPtrInst>(value_user)) {
-            auto gep_indicies = gep->indices();
+          if (auto* call = dyn_cast<CallBase>(value_user)) {
+            Function* called = call->getCalledFunction();
+            if (visited_funcs.contains(called)) {
+              LOG_WARNING("Not handling recursive kernels right now");
+              continue;
+            }
+            if (called->isDeclaration()) {
+              LOG_WARNING("Could not determine pointer access of the "
+                          << arg.arg_pos
+                          << " Argument since its calling function outside of this cu: " << called->getName());
+              continue;
+            }
+            visited_funcs.insert(called);
+            Argument* ipo_argument = called->getArg(arg.arg_pos);
+            {
+              const auto access_res = determinePointerAccessAttrs(ipo_argument);
+              // const FunctionSubArg sub_arg{ipo_argument, index_stack, true, state(access_res)};
+              // arg.subargs.push_back(sub_arg);
+              //  this argument should have already been looked at in the current function so if we
+              //  check it again we should merge the results to get the correct accessstate
+              auto* res = llvm::find_if(arg.subargs, [=](auto a) { return a.value.getValueOr(nullptr) == ipo_argument; });
+              if (res == arg.subargs.end()) {
+                res->state = mergeAccessState(res->state, state(access_res));
+              }else{
+                assert(false);
+              }
+            }
+            collect_children(arg, ipo_argument, index_stack);
+          } else if (auto* gep = dyn_cast<GetElementPtrInst>(value_user)) {
+            auto gep_indicies    = gep->indices();
             auto sub_index_stack = index_stack;
             for (unsigned i = 1; i < gep->getNumIndices(); i++) {
               auto* index = gep_indicies.begin() + i;
@@ -217,7 +257,6 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val) {
             sub_index_stack.push_back(-1);
             work_list.push_back({load, sub_index_stack});
             const auto res = determinePointerAccessAttrs(load);
-            //const FunctionArg kernel_arg{load, std::move(sub_index_stack), arg_pos, true, state(res)};
             const FunctionSubArg sub_arg{load, std::move(sub_index_stack), true, state(res)};
             arg.subargs.push_back(sub_arg);
           }
@@ -230,29 +269,18 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val) {
   }
 }
 
-void attribute_value(FunctionArg& arg, llvm::Attributor& attrib
-                     ) {
+void attribute_value(FunctionArg& arg) {
   using namespace llvm;
-  auto* value = arg.value.getValue();
+  auto* value      = arg.value.getValue();
   Type* value_type = value->getType();
+  llvm::errs() << "Attributing Value: " << value << " of type: " << value_type << "\n";
   llvm::errs() << "Attributing Value: " << *value << " of type: " << *value_type << "\n";
 
   if (value_type->isPointerTy()) {
-    IRPosition const val_pos = IRPosition::value(*value);
-    const auto& mem_behavior = attrib.getOrCreateAAFor<AAMemoryBehavior>(val_pos);
-    const auto res2          = determinePointerAccessAttrs(value);
-    llvm::errs() << "   secRes: None:" << (res2 == Attribute::None) << " ReadNone" << (res2 == Attribute::ReadNone)
-                 << " ReadOnly" << (res2 == Attribute::ReadOnly) << " WriteOnly" << (res2 == Attribute::WriteOnly)
-                 << "\n";
-    llvm::errs() << "     isValid:" << mem_behavior.isValidState() << "\n";
-    llvm::errs() << "    Got ptr: KnownReadNone:" << mem_behavior.isKnownReadNone()
-                 << " KnownReadOnly:" << mem_behavior.isKnownReadOnly()
-                 << " KnownWriteOnly:" << mem_behavior.isKnownWriteOnly() << "\n";
-    llvm::errs() << "    Got ptr: ReadNone:" << mem_behavior.isAssumedReadNone()
-                 << " ReadOnly:" << mem_behavior.isAssumedReadOnly()
-                 << " WriteOnly:" << mem_behavior.isAssumedWriteOnly() << "\n";
+    const auto res2 = determinePointerAccessAttrs(value);
     const FunctionSubArg kernel_arg{value, {}, true, state(res2)};
     arg.is_pointer = true;
+    arg.value      = value;
     arg.subargs.emplace_back(kernel_arg);
     collect_children(arg, value);
   } else {
@@ -283,8 +311,8 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
     llvm::SmallVector<int32_t> index_stack = {};
     FunctionArg arg{};
     arg.arg_pos = (uint32_t)arg_value.index();
-    arg.value = &arg_value.value();
-    attribute_value(arg, attrib);
+    arg.value   = &arg_value.value();
+    attribute_value(arg);
     args.push_back(std::move(arg));
   }
 

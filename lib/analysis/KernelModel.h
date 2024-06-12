@@ -19,6 +19,16 @@ namespace cucorr {
 
 enum class AccessState : short { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
 
+constexpr AccessState mergeAccessState(AccessState a, AccessState b){
+  if(a == AccessState::kNone){
+    return b;
+  }
+  if(b == AccessState::kNone){
+    return a;
+  }
+  return (AccessState)((short)a | (short)b);
+}
+
 inline constexpr const char* access_state_string(AccessState state) {
   switch (state) {
     case AccessState::kWritten:
