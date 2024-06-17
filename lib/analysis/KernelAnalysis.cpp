@@ -274,9 +274,6 @@ void attribute_value(FunctionArg& arg) {
   assert(arg.value.hasValue());
   auto* value      = arg.value.getValue();
   Type* value_type = value->getType();
-  //llvm::errs() << "Attributing Value: " << value << " of type: " << value_type << "\n";
-  //llvm::errs() << "Attributing Value: " << *value << " of type: " << *value_type << "\n";
-
   if (value_type->isPointerTy()) {
     const auto res2 = determinePointerAccessAttrs(value);
     const FunctionSubArg kernel_arg{value, {}, true, state(res2)};

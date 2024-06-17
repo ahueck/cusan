@@ -28,8 +28,8 @@ struct CudaKernelInvokeCollector {
   }
 
   llvm::Optional<KernelInvokeData> match(llvm::CallBase& cb, Function& callee) const {
-    errs() << "Func:" << callee.getFunction() << "\n";
     if (callee.getName() == "cudaLaunchKernel") {
+      errs() << "Func:" << callee.getFunction() << "\n";
       auto* cu_stream_handle      = std::prev(cb.arg_end())->get();
       auto* void_kernel_arg_array = std::prev(cb.arg_end(), 3)->get();
       // auto* cb_parent_function    = cb.getFunction();
