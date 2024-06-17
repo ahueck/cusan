@@ -235,16 +235,19 @@ void _cucorr_sync_event(Event event) {
 }
 
 void _cucorr_create_event(Event*) {
+  LOG_TRACE("[cucorr]create event")
 }
 
+
 void _cucorr_create_stream(RawStream* stream) {
+  LOG_TRACE("[cucorr]create stream")
   Runtime::get().register_stream(Stream(*stream));
 }
 
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {
   // NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
   // https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
-  LOG_TRACE("[cucorr]Memcpy")
+  LOG_TRACE("[cucorr]Memcpy " << count << " bytes from:" << from << " to:" << target)
 
   if (kind == cucorr_MemcpyDefault) {
     kind = infer_memcpy_direction(target, from);
@@ -296,7 +299,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
 void _cucorr_memset(void* target, int, size_t count) {
   // The cudaMemset functions are asynchronous with respect to the host except when the target memory is pinned host
   // memory.
-  LOG_TRACE("[cucorr]Memset")
+  LOG_TRACE("[cucorr]Memset " << count << " bytes to:" << target)
   auto& r = Runtime::get();
   r.switch_to_stream(Stream());
   LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
@@ -322,7 +325,7 @@ void _cucorr_memset(void* target, int, size_t count) {
 }
 
 void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_MemcpyKind kind, RawStream stream) {
-  LOG_TRACE("[cucorr]MemcpyAsync")
+  LOG_TRACE("[cucorr]MemcpyAsync" << count << " bytes to:" << target)
   if (kind == cucorr_MemcpyHostToHost) {
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
@@ -345,7 +348,7 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
 
 void _cucorr_memset_async(void* target, int, size_t count, RawStream stream) {
   // The Async versions are always asynchronous with respect to the host.
-  LOG_TRACE("[cucorr]MemsetAsync")
+  LOG_TRACE("[cucorr]MemsetAsync" << count << " bytes to:" << target)
   auto& r = Runtime::get();
   r.switch_to_stream(Stream(stream));
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
@@ -365,7 +368,7 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
 void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   // atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
   //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
-  LOG_TRACE("[cucorr]host alloc -> implicit device sync")
+  LOG_TRACE("[cucorr]host alloc " << *ptr << " with size " << size << " -> implicit device sync")
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
 
@@ -379,12 +382,12 @@ void _cucorr_host_free(void* ptr) {
 }
 
 void _cucorr_host_register(void* ptr, size_t size, unsigned int) {
-  LOG_TRACE("[cucorr]host register")
+  LOG_TRACE("[cucorr]host register " << ptr << " with size:" << size);
   auto& runtime = Runtime::get();
   runtime.insert_allocation(ptr, AllocationInfo{size, true, false});
 }
 void _cucorr_host_unregister(void* ptr) {
-  LOG_TRACE("[cucorr]host unregister")
+  LOG_TRACE("[cucorr]host unregister " << ptr);
   auto& runtime = Runtime::get();
   runtime.free_allocation(ptr);
 }

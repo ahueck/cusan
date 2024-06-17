@@ -271,10 +271,11 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector
 
 void attribute_value(FunctionArg& arg) {
   using namespace llvm;
+  assert(arg.value.hasValue());
   auto* value      = arg.value.getValue();
   Type* value_type = value->getType();
-  llvm::errs() << "Attributing Value: " << value << " of type: " << value_type << "\n";
-  llvm::errs() << "Attributing Value: " << *value << " of type: " << *value_type << "\n";
+  //llvm::errs() << "Attributing Value: " << value << " of type: " << value_type << "\n";
+  //llvm::errs() << "Attributing Value: " << *value << " of type: " << *value_type << "\n";
 
   if (value_type->isPointerTy()) {
     const auto res2 = determinePointerAccessAttrs(value);
@@ -308,12 +309,14 @@ std::optional<KernelModel> info_with_attributor(llvm::Function* kernel) {
 
   llvm::SmallVector<FunctionArg, 4> args{};
   for (const auto& arg_value : llvm::enumerate(kernel->args())) {
-    llvm::SmallVector<int32_t> index_stack = {};
     FunctionArg arg{};
     arg.arg_pos = (uint32_t)arg_value.index();
     arg.value   = &arg_value.value();
+    args.push_back(arg);
+  }
+
+  for (auto& arg : args) {
     attribute_value(arg);
-    args.push_back(std::move(arg));
   }
 
   KernelModel model{kernel, std::string{kernel->getName()}, args};
