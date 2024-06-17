@@ -211,3 +211,12 @@ configure_cucorr_script(
 )
 
 configure_cucorr_script(cucorr-wrapper.in cucorr-clang.sh)
+
+install(
+  PROGRAMS
+    ${CMAKE_CURRENT_BINARY_DIR}/cucorr-clang++${CMAKE_DEBUG_POSTFIX}
+    ${CMAKE_CURRENT_BINARY_DIR}/cucorr-clang${CMAKE_DEBUG_POSTFIX}
+    $<$<BOOL:${MPI_C_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cucorr-mpicc${CMAKE_DEBUG_POSTFIX}>
+    $<$<BOOL:${MPI_CXX_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cucorr-mpic++${CMAKE_DEBUG_POSTFIX}>
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
