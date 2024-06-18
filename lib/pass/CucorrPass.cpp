@@ -150,6 +150,8 @@ bool CucorrPass::runOnFunc(llvm::Function& function) {
   transform::CudaHostRegister(&cucorr_decls_).instrument(function);
   transform::CudaHostUnregister(&cucorr_decls_).instrument(function);
   transform::CudaMallocManaged(&cucorr_decls_).instrument(function);
+  transform::CudaMalloc(&cucorr_decls_).instrument(function);
+  transform::CudaFree(&cucorr_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     transform::CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},

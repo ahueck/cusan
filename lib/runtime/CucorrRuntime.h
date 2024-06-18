@@ -56,6 +56,8 @@ void _cucorr_managed_alloc(void** ptr, size_t size, unsigned int flags);
 void _cucorr_managed_free(void* ptr);
 void _cucorr_host_register(void* ptr, size_t size, unsigned int flags);
 void _cucorr_host_unregister(void* ptr);
+void _cucorr_device_alloc(void** ptr, size_t size);
+void _cucorr_device_free(void* ptr);
 #ifdef __cplusplus
 }
 #endif

@@ -31,6 +31,8 @@ struct FunctionDecl {
   CucorrFunction cucorr_host_free{"_cucorr_host_free"};
   CucorrFunction cucorr_host_register{"_cucorr_host_register"};
   CucorrFunction cucorr_host_unregister{"_cucorr_host_unregister"};
+  CucorrFunction cucorr_device_alloc{"_cucorr_device_alloc"};
+  CucorrFunction cucorr_device_free{"_cucorr_device_free"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -60,8 +62,8 @@ struct FunctionDecl {
     };
     using ArgTypes = decltype(CucorrFunction::arg_types);
     // TODO address space?
-    ArgTypes arg_types_cucorr_register = {PointerType::get(Type::getInt8PtrTy(c), 0),
-                                          Type::getInt16PtrTy(c), Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
+    ArgTypes arg_types_cucorr_register = {PointerType::get(Type::getInt8PtrTy(c), 0), Type::getInt16PtrTy(c),
+                                          Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
     make_function(cucorr_register_access, arg_types_cucorr_register);
 
     ArgTypes arg_types_sync_device = {};
@@ -121,7 +123,11 @@ struct FunctionDecl {
     ArgTypes arg_types_managed_alloc = {Type::getInt8PtrTy(c), size_t_ty, Type::getInt32Ty(c)};
     make_function(cucorr_managed_alloc, arg_types_managed_alloc);
 
-    
+    ArgTypes arg_device_alloc = {Type::getInt8PtrTy(c), size_t_ty};
+    make_function(cucorr_device_alloc, arg_device_alloc);
+
+    ArgTypes arg_device_free = {Type::getInt8PtrTy(c)};
+    make_function(cucorr_device_free, arg_device_free);
   }
 };
 

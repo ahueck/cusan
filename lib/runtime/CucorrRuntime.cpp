@@ -399,9 +399,16 @@ void _cucorr_managed_alloc(void** ptr, size_t size, unsigned int) {
   runtime.insert_allocation(*ptr, AllocationInfo{size, false, true});
 }
 
-//void _cucorr_managed_free(void* ptr) {
-//  LOG_TRACE("[cucorr] deviceFree")
-//  auto& runtime = Runtime::get();
-//  runtime.happens_after_all_streams();
-//  runtime.free_allocation(ptr, false);
-//}
+void _cucorr_device_alloc(void** ptr, size_t size){
+  //implicit syncs device https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator 
+  LOG_TRACE("[cucorr]Device alloc " << *ptr << " with size " << size << " -> implicit device sync")
+  auto& runtime = Runtime::get();
+  runtime.happens_after_all_streams();
+}
+void _cucorr_device_free(void* ptr){
+  //implicit syncs device https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator 
+  LOG_TRACE("[cucorr]Device free " << ptr << " -> maybe implicit device sync")
+  //auto& runtime = Runtime::get();
+  //runtime.happens_after_all_streams();
+}
+

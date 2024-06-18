@@ -516,7 +516,7 @@ class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
     setup("cudaMallocManaged", &decls->cucorr_managed_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
-    //( void* ptr)
+    //( void* ptr, size_t size, u32 flags)
     assert(args.size() == 3);
     auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     auto* size  = args[1];
@@ -525,6 +525,34 @@ class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
   }
 };
 
+
+class CudaMalloc : public SimpleInstrumenter<CudaMalloc> {
+ public:
+  CudaMalloc(callback::FunctionDecl* decls) {
+    setup("cudaMalloc", &decls->cucorr_device_alloc.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* ptr, size_t size)
+    assert(args.size() == 2);
+    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* size  = args[1];
+    return {ptr, size};
+  }
+};
+
+
+class CudaFree : public SimpleInstrumenter<CudaFree> {
+ public:
+  CudaFree(callback::FunctionDecl* decls) {
+    setup("cudaFree", &decls->cucorr_device_free.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* ptr)
+    assert(args.size() == 1);
+    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    return {ptr};
+  }
+};
 
 }  // namespace transform
 }  // namespace cucorr
