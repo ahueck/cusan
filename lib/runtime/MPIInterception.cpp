@@ -45,7 +45,6 @@ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
   int type_size;
   MPI_Type_size(datatype, &type_size);
   {
-    printf("mpiIrecv");
     if (!async_fiber) {
       async_fiber = TsanCreateFiber(0);
     }
@@ -65,7 +64,6 @@ int MPI_Wait(MPI_Request* request, MPI_Status* status) {
   int _wrap_py_return_val = PMPI_Wait(request, status);
 
   if (request) {
-    printf("mpiwait");
     TsanHappensAfter(request);
   }
   return _wrap_py_return_val;
