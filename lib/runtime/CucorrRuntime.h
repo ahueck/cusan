@@ -59,6 +59,7 @@ void _cucorr_host_unregister(void* ptr);
 void _cucorr_device_alloc(void** ptr, size_t size);
 void _cucorr_device_free(void* ptr);
 void _cucorr_stream_query(RawStream stream, unsigned int err);
+void _cucorr_event_query(Event event, unsigned int err);
 #ifdef __cplusplus
 }
 #endif

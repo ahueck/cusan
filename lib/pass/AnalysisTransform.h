@@ -585,5 +585,22 @@ class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
   }
 };
 
+class CudaEventQuery : public SimpleInstrumenter<CudaEventQuery> {
+ public:
+  CudaEventQuery(callback::FunctionDecl* decls) {
+    setup("cudaEventQuery", &decls->cucorr_event_query.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* event)
+    assert(args.size() == 1);
+    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    return {ptr};
+  }
+  static llvm::SmallVector<Value*, 1> map_return_value(IRBuilder<>& irb, Value* result) {
+    (void)irb;
+    return {result};
+  }
+};
+
 }  // namespace transform
 }  // namespace cucorr

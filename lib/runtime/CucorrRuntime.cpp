@@ -416,10 +416,20 @@ void _cucorr_device_free(void* ptr) {
 
 // TODO: get rid of cudaSpecifc check for cudaSuccess 0
 void _cucorr_stream_query(RawStream stream, unsigned int err) {
-  LOG_TRACE("[cucorr]TODO Stream query " << stream << " -> " << err)
+  LOG_TRACE("[cucorr] Stream query " << stream << " -> " << err)
   if (err == 0) {
     LOG_TRACE("[cucorr]    syncing")
     auto& runtime = Runtime::get();
     runtime.happens_after_stream(Stream{stream});
+  }
+}
+
+// TODO: get rid of cudaSpecifc check for cudaSuccess 0
+void _cucorr_event_query(Event event, unsigned int err) {
+  LOG_TRACE("[cucorr] Event query " << event << " -> " << err)
+  if (err == 0) {
+    LOG_TRACE("[cucorr]    syncing")
+    auto& runtime = Runtime::get();
+    runtime.sync_event(event);
   }
 }
