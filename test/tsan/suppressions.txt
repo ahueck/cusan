@@ -25,4 +25,5 @@ called_from_lib:libopen-pal.so.40*
 #called_from_lib:libmca_common_dstore.so*
 called_from_lib:libopen-rte.so.40*
 called_from_lib:ld-linux-x86-64.so*
-#called_from_lib:libmlx5-rdma*
+called_from_lib:libmlx5-rdma*
+called_from_lib:libnvidia-ml.so.1
