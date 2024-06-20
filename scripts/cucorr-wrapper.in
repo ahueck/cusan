@@ -546,7 +546,10 @@ function typeart_main_compile_fn() {
     typeart_object_file="${out_basename}".o
   fi
 
-  export CUCORR_KERNEL_DATA_FILE="${out_basename}".yaml
+  local -r cucorr_is_installed=@TYPEART_RELOCATABLE@
+  if [ $cucorr_is_installed == 0 ];then
+    export CUCORR_KERNEL_DATA_FILE="${out_basename}".yaml
+  fi
 
   if [ "$typeart_found_cuda" == 1 ]; then
     typeart_compile_cuda_device_fn
