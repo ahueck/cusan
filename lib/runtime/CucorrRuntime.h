@@ -14,17 +14,17 @@ using TsanFiber = void*;
 using Event     = const void*;
 using RawStream = const void*;
 }  // namespace cucorr::runtime
+using cucorr::runtime::Event;
+using cucorr::runtime::RawStream;
+using cucorr::runtime::TsanFiber;
 #else
 #define TsanFiber void*
 #define Event const void*
 #define RawStream const void*
 #endif
 
-using cucorr::runtime::Event;
-using cucorr::runtime::RawStream;
-using cucorr::runtime::TsanFiber;
-
 #ifdef __cplusplus
+
 extern "C" {
 #endif
 
@@ -58,6 +58,7 @@ void _cucorr_host_register(void* ptr, size_t size, unsigned int flags);
 void _cucorr_host_unregister(void* ptr);
 void _cucorr_device_alloc(void** ptr, size_t size);
 void _cucorr_device_free(void* ptr);
+void _cucorr_stream_query(RawStream stream, unsigned int err);
 #ifdef __cplusplus
 }
 #endif

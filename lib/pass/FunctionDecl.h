@@ -33,6 +33,7 @@ struct FunctionDecl {
   CucorrFunction cucorr_host_unregister{"_cucorr_host_unregister"};
   CucorrFunction cucorr_device_alloc{"_cucorr_device_alloc"};
   CucorrFunction cucorr_device_free{"_cucorr_device_free"};
+  CucorrFunction cucorr_stream_query{"_cucorr_stream_query"};
 
   void initialize(Module& m) {
     using namespace llvm;
@@ -128,6 +129,11 @@ struct FunctionDecl {
 
     ArgTypes arg_device_free = {Type::getInt8PtrTy(c)};
     make_function(cucorr_device_free, arg_device_free);
+
+    //RawStream* stream, u32 return_errType
+    ArgTypes arg_stream_query = {Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
+    make_function(cucorr_stream_query, arg_stream_query);
+    
   }
 };
 

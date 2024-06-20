@@ -5,6 +5,8 @@
 // RUN: %wrapper-cxx %tsan-compile-flags -DCUCORR_SYNC -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
 // RUN: %tsan-options %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
+// UN: %apply %s -DCUCORR_SYNC --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
+
 // clang-format on
 
 // CHECK-DAG: data race
@@ -35,36 +37,26 @@ int main() {
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
   int* managed_data;
-  int* managed_data2;
-  int* fake_data;
-  int* d_data2;
   cudaStream_t stream1;
-  cudaStream_t stream2;
   cudaStreamCreate(&stream1);
-  cudaStreamCreate(&stream2);
 
   cudaMallocManaged(&managed_data, size * sizeof(int));
-  cudaMallocManaged(&managed_data2, size * sizeof(int));
-  cudaMalloc(&fake_data, 4);
   cudaMemset(managed_data, 0, size * sizeof(int));
-  cudaMemset(managed_data2, 0, size * sizeof(int));
   
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(managed_data, size, 1316134912);
+
 #ifdef CUCORR_SYNC
-  cudaMemset(fake_data, 0, 4);
+  while(cudaStreamQuery(stream1) != cudaSuccess){}
 #endif
-  write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(managed_data2, size, 1);
-  cudaStreamSynchronize(stream2);
+
   for (int i = 0; i < size; i++) {
-    //printf("[Error] sync %i, %i\n", managed_data2[i], managed_data[i]);
     if (managed_data[i] == 0) {
       printf("[Error] sync %i\n", managed_data[i]);
-      break;
+      //break;
     }
   }
 
-  cudaFree(d_data2);
   cudaFree(managed_data);
-  
+  cudaStreamDestroy(stream1);
   return 0;
 }

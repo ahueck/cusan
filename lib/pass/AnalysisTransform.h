@@ -223,6 +223,16 @@ class CallInstrumenter {
   }
 };
 
+template <typename T, typename = int>
+struct WantsReturnValue : std::false_type {
+};
+
+template <typename T>
+struct WantsReturnValue<T, decltype(&T::map_return_value, 0)> : std::true_type {
+};
+
+
+
 template <class T>
 class SimpleInstrumenter {
   enum class InsertLocation {
@@ -264,16 +274,18 @@ class SimpleInstrumenter {
             irb.SetInsertPoint(cb->getNextNonDebugInstruction());
           }
         }
-        if (!cb->arg_empty()) {
-          SmallVector<Value*> v;
-          for (auto& arg : cb->args()) {
-            v.push_back(arg.get());
-          }
-          auto args = T::map_arguments(irb, v);
-          irb.CreateCall(*callee_, args);
-        } else {
-          irb.CreateCall(*callee_, {});
+
+        SmallVector<Value*> v;
+        for (auto& arg : cb->args()) {
+          v.push_back(arg.get());
         }
+        auto args = T::map_arguments(irb, v);
+        if constexpr (WantsReturnValue<T>::value){
+          assert(loc == InsertLocation::kAfter && "Can only capture return value if insertion location is after");
+          args.append(T::map_return_value(irb, cb));
+        }
+        irb.CreateCall(*callee_, args);
+
       }
     }
     return !target_callsites_.empty();
@@ -551,6 +563,25 @@ class CudaFree : public SimpleInstrumenter<CudaFree> {
     assert(args.size() == 1);
     auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     return {ptr};
+  }
+};
+
+
+
+class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
+ public:
+  CudaStreamQuery(callback::FunctionDecl* decls) {
+    setup("cudaStreamQuery", &decls->cucorr_stream_query.f);
+  }
+  static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    //( void* stream)
+    assert(args.size() == 1);
+    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    return {ptr};
+  }
+  static llvm::SmallVector<Value*, 1> map_return_value(IRBuilder<>& irb, Value* result) {
+    (void)irb;
+    return {result};
   }
 };
 

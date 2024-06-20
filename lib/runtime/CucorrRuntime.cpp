@@ -35,7 +35,7 @@ struct Stream {
 
 struct AllocationInfo {
   size_t size;
-  bool is_pinned = false;
+  bool is_pinned  = false;
   bool is_managed = false;
 };
 
@@ -238,7 +238,6 @@ void _cucorr_create_event(Event*) {
   LOG_TRACE("[cucorr]create event")
 }
 
-
 void _cucorr_create_stream(RawStream* stream) {
   LOG_TRACE("[cucorr]create stream")
   Runtime::get().register_stream(Stream(*stream));
@@ -312,15 +311,15 @@ void _cucorr_memset(void* target, int, size_t count) {
   if (alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) {
     LOG_TRACE("[cucorr]    " << "Memset is synced")
     r.happens_after_stream(Stream());
-  }else{
+  } else {
     LOG_TRACE("[cucorr]    " << "Memset is not synced")
-    if(!alloc_info){
+    if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
-    }else{
+    } else {
       LOG_TRACE("[cucorr]    " << alloc_info->is_pinned << " " << alloc_info->is_managed)
     }
   }
-  
+
   // r.happens_after_stream(Stream());
 }
 
@@ -399,16 +398,28 @@ void _cucorr_managed_alloc(void** ptr, size_t size, unsigned int) {
   runtime.insert_allocation(*ptr, AllocationInfo{size, false, true});
 }
 
-void _cucorr_device_alloc(void** ptr, size_t size){
-  //implicit syncs device https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator 
+void _cucorr_device_alloc(void** ptr, size_t size) {
+  // implicit syncs device
+  // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator
   LOG_TRACE("[cucorr]Device alloc " << *ptr << " with size " << size << " -> implicit device sync")
+  auto& runtime = Runtime::get();
+  runtime.switch_to_stream(Stream());
+  runtime.switch_to_cpu();
+}
+void _cucorr_device_free(void* ptr) {
+  // implicit syncs device
+  // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator
+  LOG_TRACE("[cucorr]Device free " << ptr << " -> TODO maybe implicit device sync")
   auto& runtime = Runtime::get();
   runtime.happens_after_all_streams();
 }
-void _cucorr_device_free(void* ptr){
-  //implicit syncs device https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator 
-  LOG_TRACE("[cucorr]Device free " << ptr << " -> maybe implicit device sync")
-  //auto& runtime = Runtime::get();
-  //runtime.happens_after_all_streams();
-}
 
+// TODO: get rid of cudaSpecifc check for cudaSuccess 0
+void _cucorr_stream_query(RawStream stream, unsigned int err) {
+  LOG_TRACE("[cucorr]TODO Stream query " << stream << " -> " << err)
+  if (err == 0) {
+    LOG_TRACE("[cucorr]    syncing")
+    auto& runtime = Runtime::get();
+    runtime.happens_after_stream(Stream{stream});
+  }
+}
