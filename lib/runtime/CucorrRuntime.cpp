@@ -3,7 +3,6 @@
 // Distributed under the BSD 3-Clause License license.
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
-#define CUCORR_LOG_LEVEL 3
 
 #include "CucorrRuntime.h"
 // clang-format off

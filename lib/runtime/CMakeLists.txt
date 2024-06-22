@@ -34,10 +34,6 @@ export(
   NAMESPACE cucorr::
 )
 
-
-
-
-
 add_library(cucorr_Runtime SHARED CucorrRuntime.cpp CucorrRuntime_cudaSpecific.cpp)
 set_target_properties(
   cucorr_Runtime
@@ -63,6 +59,11 @@ target_include_directories(cucorr_Runtime ${warning_guard}
 )
 
 cucorr_target_define_file_basename(cucorr_Runtime)
+
+target_compile_definitions(
+  cucorr_Runtime
+  PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
+)
 
 set(CONFIG_NAME cucorrRuntime)
 set(TARGETS_EXPORT_NAME ${CONFIG_NAME}Targets)

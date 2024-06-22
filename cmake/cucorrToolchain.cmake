@@ -40,6 +40,12 @@ mark_as_advanced(CUCORR_TEST_CONFIGURE_IDE)
 option(CUCORR_CONFIG_DIR_IS_SHARE "Install to \"share/cmake/\" instead of \"lib/cmake/\"" OFF)
 mark_as_advanced(CUCORR_CONFIG_DIR_IS_SHARE)
 
+set(CUCORR_LOG_LEVEL_RT 3 CACHE STRING "Granularity of runtime logger. 3 is most verbose, 0 is least.")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(CUCORR_LOG_LEVEL_RT 0 CACHE STRING "" FORCE)
+endif()
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(warning_guard "")
