@@ -69,9 +69,9 @@ function(configure_cucorr_script input output)
     set(TYPEART_CALLFILTER "--typeart-filter")
   endif()
 
-  if(TYPEART_TSAN)
+  #if(TYPEART_TSAN)
     typeart_target_tsan_flags(TYPEART_SAN_FLAGS)
-  endif()
+  #endif()
 
   if(TYPEART_ASAN)
     typeart_target_asan_flags(asan_flags)

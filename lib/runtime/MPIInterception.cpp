@@ -59,13 +59,50 @@ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
   return _wrap_py_return_val;
 }
 
-int PMPI_Wait(MPI_Request* request, MPI_Status* status);
-int MPI_Wait(MPI_Request* request, MPI_Status* status) {
+_EXTERN_C_ int PMPI_Isend(const void* buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm,
+                          MPI_Request* request);
+_EXTERN_C_ int MPI_Isend(const void* buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm,
+                         MPI_Request* request) {
+  int _wrap_py_return_val = PMPI_Isend(buf, count, datatype, dest, tag, comm, request);
+
+  int type_size;
+  MPI_Type_size(datatype, &type_size);
+  {
+    if (!async_fiber) {
+      async_fiber = TsanCreateFiber(0);
+    }
+    void* old_fiber = TsanGetCurrentFiber();
+    TsanSwitchToFiber(async_fiber, 0);
+    TsanMemoryReadPC(buf, static_cast<uptr>(count) * type_size, __builtin_return_address(0));
+    if (request) {
+      TsanHappensBefore(request);
+    }
+    TsanSwitchToFiber(old_fiber, 1);
+  }
+
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Wait(MPI_Request* request, MPI_Status* status);
+_EXTERN_C_ int MPI_Wait(MPI_Request* request, MPI_Status* status) {
   int _wrap_py_return_val = PMPI_Wait(request, status);
 
   if (request) {
     TsanHappensAfter(request);
   }
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status* array_of_statuses);
+_EXTERN_C_ int MPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status* array_of_statuses) {
+  int _wrap_py_return_val = PMPI_Waitall(count, array_of_requests, array_of_statuses);
+  
+  for (int i = 0; i < count; ++i) {
+    if (&(array_of_requests[i])) {
+      TsanHappensAfter(&(array_of_requests[i]));
+    }
+  }
+
   return _wrap_py_return_val;
 }
 
@@ -91,7 +128,7 @@ int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int 
 
 int PMPI_Barrier(MPI_Comm comm);
 int MPI_Barrier(MPI_Comm comm) {
-  int _wrap_py_return_val = PMPI_Barrier(comm) ;
+  int _wrap_py_return_val = PMPI_Barrier(comm);
   if (!async_fiber) {
     async_fiber = TsanCreateFiber(0);
   }
@@ -101,12 +138,11 @@ int MPI_Barrier(MPI_Comm comm) {
   return _wrap_py_return_val;
 }
 
-int PMPI_Reduce(const void *sendbuf, void *recvbuf, int count,
-               MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm);
-int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
-               MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm){
-    int _wrap_py_return_val = PMPI_Reduce(sendbuf, recvbuf, count,
-               datatype, op, root, comm);
+int PMPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
+                MPI_Comm comm);
+int MPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
+               MPI_Comm comm) {
+  int _wrap_py_return_val = PMPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm);
   {
     int type_size;
     MPI_Type_size(datatype, &type_size);
@@ -117,12 +153,9 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
   return _wrap_py_return_val;
 }
 
-int PMPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
-               MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
-int MPI_Allreduce(const void *sendbuf, void *recvbuf, int count,
-               MPI_Datatype datatype, MPI_Op op, MPI_Comm comm){
-    int _wrap_py_return_val = PMPI_Allreduce(sendbuf, recvbuf, count,
-               datatype, op, comm);
+int PMPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
+int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+  int _wrap_py_return_val = PMPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
   {
     int type_size;
     MPI_Type_size(datatype, &type_size);

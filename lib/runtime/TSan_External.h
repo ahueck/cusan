@@ -125,7 +125,7 @@ void __attribute__((weak)) __tsan_write8_pc(void* addr, void* pc) {
 
 #define annotateHelper(rw, s)                                            \
   if (len >= s) {                                                        \
-    printf("annotateHelper(%s, %i, %p, %li)\n", #rw, s, addr, (uptr)pc); \
+    /*printf("annotateHelper(%s, %i, %p, %li)\n", #rw, s, addr, (uptr)pc);*/ \
     len -= s;                                                            \
     __tsan_##rw##s##_pc(addr, pc);                                       \
     addr += s;                                                           \
