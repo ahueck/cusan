@@ -24,6 +24,7 @@ cucorr_target_format(
           lib/pass/*.h
 )
 
+add_subdirectory(externals)
 add_subdirectory(lib)
 add_subdirectory(scripts)
 

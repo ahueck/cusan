@@ -42,6 +42,8 @@ mark_as_advanced(CUCORR_CONFIG_DIR_IS_SHARE)
 
 set(CUCORR_LOG_LEVEL_RT 3 CACHE STRING "Granularity of runtime logger. 3 is most verbose, 0 is least.")
 
+option(CUCORR_FIBERPOOL "Use external fiber pool to manage ThreadSanitizer fibers" OFF)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   set(CUCORR_LOG_LEVEL_RT 0 CACHE STRING "" FORCE)
 endif()

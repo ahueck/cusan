@@ -47,6 +47,11 @@ target_compile_features(cucorr_Runtime PUBLIC cxx_std_17)
 
 target_link_libraries(cucorr_Runtime PRIVATE typeart::Runtime)
 
+if(CUCORR_FIBERPOOL)
+  target_link_libraries(cucorr_Runtime PRIVATE cucorr::fiberpool)
+endif()
+
+
 target_include_directories(cucorr_Runtime
   SYSTEM
   PRIVATE
@@ -63,6 +68,7 @@ cucorr_target_define_file_basename(cucorr_Runtime)
 target_compile_definitions(
   cucorr_Runtime
   PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
+   $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
 )
 
 set(CONFIG_NAME cucorrRuntime)
@@ -74,6 +80,15 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+if(CUCORR_FIBERPOOL)
+install(
+  TARGETS cucorr_fiberpool
+  EXPORT ${TARGETS_EXPORT_NAME}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+endif()
 
 install(
   EXPORT ${TARGETS_EXPORT_NAME}
