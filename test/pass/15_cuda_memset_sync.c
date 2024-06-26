@@ -45,7 +45,7 @@ int main() {
 
   cudaMallocManaged(&managed_data, size * sizeof(int));
   cudaMallocManaged(&managed_data2, size * sizeof(int));
-  cudaMalloc(&fake_data, 4);
+  cudaMallocManaged(&fake_data, 4);
   cudaMemset(managed_data, 0, size * sizeof(int));
   cudaMemset(managed_data2, 0, size * sizeof(int));
   
@@ -56,7 +56,6 @@ int main() {
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(managed_data2, size, 1);
   cudaStreamSynchronize(stream2);
   for (int i = 0; i < size; i++) {
-    //printf("[Error] sync %i, %i\n", managed_data2[i], managed_data[i]);
     if (managed_data[i] == 0) {
       printf("[Error] sync %i\n", managed_data[i]);
       break;

@@ -40,7 +40,8 @@
         "clang-toolchain", "flags-cmake", "flags-clang"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CUCORR_LOG_LEVEL_RT": "0"
       }
     },
     {
@@ -52,7 +53,8 @@
         "clang-toolchain"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CUCORR_LOG_LEVEL_RT": "0"
       }
     }
   ]

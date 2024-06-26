@@ -131,11 +131,10 @@ function cucorr_global_init() {
   local -r cucorr_lib_dir="@CUCORR_RT_DIR@"
   local -r cucorr_include_dir="@CUCORR_INCLUDE_DIRS@"
   local -r cucorr_pass="@CUCORR_PASS_DIR@/$<TARGET_FILE_NAME:cucorr::TransformPass>"
-
+  #export LD_PRELOAD="$<TARGET_FILE_BASE_NAME:cucorr::MPI_Interceptor>":$LD_PRELOAD
   readonly cucorr_ldflags="-L${cucorr_lib_dir}/ \
                    -Wl,-rpath,${cucorr_lib_dir}/ \
-                   -l$<TARGET_FILE_BASE_NAME:cucorr::Runtime>
-                   -l$<TARGET_FILE_BASE_NAME:cucorr::MPI_Interceptor>"
+                   -l$<TARGET_FILE_BASE_NAME:cucorr::Runtime>"
 
   readonly cucorr_includes="${cucorr_include_dir}"
   readonly cucorr_plugin="-load "${cucorr_pass}" -cucorr"
