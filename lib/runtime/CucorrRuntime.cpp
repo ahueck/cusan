@@ -10,6 +10,8 @@
 #include "analysis/KernelModel.h"
 #include "support/Logger.h"
 #include "TSan_External.h"
+#include "StatsCounter.h"
+#include "support/Table.h"
 // clang-format on
 #include <iostream>
 #include <map>
@@ -63,6 +65,9 @@ class Runtime {
   bool init_ = false;
 
  public:
+  Recorder stats_recorder;
+
+ public:
   static Runtime& get() {
     static Runtime run_t;
     if (!run_t.init_) {
@@ -89,6 +94,7 @@ class Runtime {
     // without synchronization
     TsanSwitchToFiber(cpu_fiber_, 1);
     curr_fiber_ = cpu_fiber_;
+    stats_recorder.inc_fiber_switches();
   }
 
   void register_stream(Stream stream) {
@@ -113,6 +119,7 @@ class Runtime {
         }
       }
     }
+    stats_recorder.inc_fiber_switches();
     curr_fiber_ = search_result->second;
   }
 
@@ -173,7 +180,37 @@ class Runtime {
  private:
   Runtime() = default;
 
-  ~Runtime() = default;
+#undef stat_table_row_add
+#define stat_table_row_add(table, name) table.put(Row::make(#name, stats_recorder.get_##name()));
+
+  ~Runtime() {
+    Table result_table{"Cucorr runtime statistics"};
+    // #if ENABLE_SOFTCOUNTER
+    stat_table_row_add(result_table, event_query_calls);
+    stat_table_row_add(result_table, stream_query_calls);
+    stat_table_row_add(result_table, device_free_calls);
+    stat_table_row_add(result_table, device_alloc_calls);
+    stat_table_row_add(result_table, managed_alloc_calls);
+    stat_table_row_add(result_table, host_unregister_calls);
+    stat_table_row_add(result_table, host_register_calls);
+    stat_table_row_add(result_table, stream_wait_event_calls);
+    stat_table_row_add(result_table, memset_async_calls);
+    stat_table_row_add(result_table, memcpy_async_calls);
+    stat_table_row_add(result_table, memset_calls);
+    stat_table_row_add(result_table, memcpy_calls);
+    stat_table_row_add(result_table, create_event_calls);
+    stat_table_row_add(result_table, create_stream_calls);
+    stat_table_row_add(result_table, sync_event_calls);
+    stat_table_row_add(result_table, sync_stream_calls);
+    stat_table_row_add(result_table, sync_device_calls);
+    stat_table_row_add(result_table, event_record_calls);
+    stat_table_row_add(result_table, kernel_register_calls);
+    stat_table_row_add(result_table, host_free_calls);
+    stat_table_row_add(result_table, host_alloc_calls);
+    stat_table_row_add(result_table, fiber_switches);
+    // #endif
+    result_table.print(std::cout);
+  }
 };
 
 cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from);
@@ -185,6 +222,7 @@ using namespace cucorr::runtime;
 void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream stream) {
   LOG_TRACE("[cucorr]Kernel Register with " << n << " Args and on stream:" << stream)
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_kernel_register_calls();
   runtime.switch_to_stream(Stream(stream));
   for (int i = 0; i < n; ++i) {
     const auto mode = cucorr::runtime::access_cast_back(modes[i]);
@@ -214,32 +252,42 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
 void _cucorr_sync_device() {
   LOG_TRACE("[cucorr]Sync Device\n")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_sync_device_calls();
   runtime.happens_after_all_streams();
 }
 
 void _cucorr_event_record(Event event, RawStream stream) {
   LOG_TRACE("[cucorr]Event Record")
-  Runtime::get().record_event(event, Stream(stream));
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_event_record_calls();
+  runtime.record_event(event, Stream(stream));
 }
 
 void _cucorr_sync_stream(RawStream stream) {
   LOG_TRACE("[cucorr]Sync Stream" << stream)
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_sync_stream_calls();
   runtime.happens_after_stream(Stream(stream));
 }
 
 void _cucorr_sync_event(Event event) {
   LOG_TRACE("[cucorr]Sync Event" << event)
-  Runtime::get().sync_event(event);
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_sync_event_calls();
+  runtime.sync_event(event);
 }
 
 void _cucorr_create_event(Event*) {
   LOG_TRACE("[cucorr]create event")
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_create_event_calls();
 }
 
 void _cucorr_create_stream(RawStream* stream) {
   LOG_TRACE("[cucorr]create stream")
-  Runtime::get().register_stream(Stream(*stream));
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_create_stream_calls();
+  runtime.register_stream(Stream(*stream));
 }
 
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {
@@ -251,39 +299,40 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     kind = infer_memcpy_direction(target, from);
   }
 
-  auto& r = Runtime::get();
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_memcpy_calls();
   if (kind == cucorr_MemcpyDeviceToDevice) {
     // 4. For transfers from device memory to device memory, no host-side synchronization is performed.
-    r.switch_to_stream(Stream());
+    runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
-    r.happens_before();
-    r.switch_to_cpu();
+    runtime.happens_before();
+    runtime.switch_to_cpu();
   } else if (kind == cucorr_MemcpyDeviceToHost) {
     // 3. For transfers from device to either pageable or pinned host memory, the function returns only once the copy
     // has completed.
-    r.switch_to_stream(Stream());
+    runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
-    r.happens_before();
-    r.switch_to_cpu();
-    r.happens_after_stream(Stream());
+    runtime.happens_before();
+    runtime.switch_to_cpu();
+    runtime.happens_after_stream(Stream());
   } else if (kind == cucorr_MemcpyHostToDevice) {
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
-    auto* alloc_info = r.get_allocation_info(from);
+    auto* alloc_info = runtime.get_allocation_info(from);
     // if we couldnt find alloc info we just assume the worst and dont sync
     if (alloc_info && !alloc_info->is_pinned) {
-      r.happens_after_stream(Stream());
+      runtime.happens_after_stream(Stream());
     }
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
     //   device memory
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
-    r.switch_to_stream(Stream());
+    runtime.switch_to_stream(Stream());
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
-    r.happens_before();
-    r.switch_to_cpu();
-    r.happens_after_stream(Stream());
+    runtime.happens_before();
+    runtime.switch_to_cpu();
+    runtime.happens_after_stream(Stream());
   } else if (kind == cucorr_MemcpyHostToHost) {
     // 5. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
@@ -298,18 +347,19 @@ void _cucorr_memset(void* target, int, size_t count) {
   // The cudaMemset functions are asynchronous with respect to the host except when the target memory is pinned host
   // memory.
   LOG_TRACE("[cucorr]Memset " << count << " bytes to:" << target)
-  auto& r = Runtime::get();
-  r.switch_to_stream(Stream());
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_memset_calls();
+  runtime.switch_to_stream(Stream());
   LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
-  r.happens_before();
-  r.switch_to_cpu();
+  runtime.happens_before();
+  runtime.switch_to_cpu();
 
-  auto* alloc_info = r.get_allocation_info(target);
+  auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if (alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) {
     LOG_TRACE("[cucorr]    " << "Memset is synced")
-    r.happens_after_stream(Stream());
+    runtime.happens_after_stream(Stream());
   } else {
     LOG_TRACE("[cucorr]    " << "Memset is not synced")
     if (!alloc_info) {
@@ -324,6 +374,8 @@ void _cucorr_memset(void* target, int, size_t count) {
 
 void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_MemcpyKind kind, RawStream stream) {
   LOG_TRACE("[cucorr]MemcpyAsync" << count << " bytes to:" << target)
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_memcpy_async_calls();
   if (kind == cucorr_MemcpyHostToHost) {
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
@@ -335,32 +387,34 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
     // 2. If pageable memory must first be staged to pinned memory, the driver *may* synchronize with the stream and
     // stage the copy into pinned memory.
     // 4. For all other transfers, the function should be fully asynchronous.
-    auto& r = Runtime::get();
-    r.switch_to_stream(Stream(stream));
+
+    runtime.switch_to_stream(Stream(stream));
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
-    r.happens_before();
-    r.switch_to_cpu();
+    runtime.happens_before();
+    runtime.switch_to_cpu();
   }
 }
 
 void _cucorr_memset_async(void* target, int, size_t count, RawStream stream) {
   // The Async versions are always asynchronous with respect to the host.
   LOG_TRACE("[cucorr]MemsetAsync" << count << " bytes to:" << target)
-  auto& r = Runtime::get();
-  r.switch_to_stream(Stream(stream));
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_memset_async_calls();
+  runtime.switch_to_stream(Stream(stream));
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
-  r.happens_before();
-  r.switch_to_cpu();
+  runtime.happens_before();
+  runtime.switch_to_cpu();
 }
 
 void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags) {
   LOG_TRACE("[cucorr]StreamWaitEvent stream:" << stream << " on event:" << event)
-  auto& r = Runtime::get();
-  r.switch_to_stream(Stream(stream));
-  r.sync_event(event);
-  r.happens_before();
-  r.switch_to_cpu();
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_stream_wait_event_calls();
+  runtime.switch_to_stream(Stream(stream));
+  runtime.sync_event(event);
+  runtime.happens_before();
+  runtime.switch_to_cpu();
 }
 
 void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
@@ -368,6 +422,7 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
   LOG_TRACE("[cucorr]host alloc " << *ptr << " with size " << size << " -> implicit device sync")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_host_alloc_calls();
   runtime.happens_after_all_streams();
 
   runtime.insert_allocation(*ptr, AllocationInfo{size, true, false});
@@ -376,23 +431,27 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
 void _cucorr_host_free(void* ptr) {
   LOG_TRACE("[cucorr]host free")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_host_free_calls();
   runtime.free_allocation(ptr);
 }
 
 void _cucorr_host_register(void* ptr, size_t size, unsigned int) {
   LOG_TRACE("[cucorr]host register " << ptr << " with size:" << size);
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_host_register_calls();
   runtime.insert_allocation(ptr, AllocationInfo{size, true, false});
 }
 void _cucorr_host_unregister(void* ptr) {
   LOG_TRACE("[cucorr]host unregister " << ptr);
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_host_unregister_calls();
   runtime.free_allocation(ptr);
 }
 
 void _cucorr_managed_alloc(void** ptr, size_t size, unsigned int) {
   LOG_TRACE("[cucorr]Managed host alloc " << *ptr << " with size " << size << " -> implicit device sync")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_managed_alloc_calls();
   runtime.happens_after_all_streams();
   runtime.insert_allocation(*ptr, AllocationInfo{size, false, true});
 }
@@ -402,6 +461,7 @@ void _cucorr_device_alloc(void** ptr, size_t size) {
   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator
   LOG_TRACE("[cucorr]Device alloc " << *ptr << " with size " << size << " -> implicit device sync")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_device_alloc_calls();
   runtime.switch_to_stream(Stream());
   runtime.switch_to_cpu();
 }
@@ -410,15 +470,18 @@ void _cucorr_device_free(void* ptr) {
   // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#stream-ordered-memory-allocator
   LOG_TRACE("[cucorr]Device free " << ptr << " -> TODO maybe implicit device sync")
   auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_device_free_calls();
   runtime.happens_after_all_streams();
 }
 
 // TODO: get rid of cudaSpecifc check for cudaSuccess 0
 void _cucorr_stream_query(RawStream stream, unsigned int err) {
   LOG_TRACE("[cucorr] Stream query " << stream << " -> " << err)
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_stream_query_calls();
   if (err == 0) {
     LOG_TRACE("[cucorr]    syncing")
-    auto& runtime = Runtime::get();
+
     runtime.happens_after_stream(Stream{stream});
   }
 }
@@ -426,9 +489,10 @@ void _cucorr_stream_query(RawStream stream, unsigned int err) {
 // TODO: get rid of cudaSpecifc check for cudaSuccess 0
 void _cucorr_event_query(Event event, unsigned int err) {
   LOG_TRACE("[cucorr] Event query " << event << " -> " << err)
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_event_query_calls();
   if (err == 0) {
     LOG_TRACE("[cucorr]    syncing")
-    auto& runtime = Runtime::get();
     runtime.sync_event(event);
   }
 }
