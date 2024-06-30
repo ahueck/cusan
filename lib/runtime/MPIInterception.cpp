@@ -98,6 +98,7 @@ struct MPIRuntime final {
     cucorr_stat_handle(TsanSwitchToFiber);
     cucorr_stat_handle(TsanHappensBefore);
     cucorr_stat_handle(TsanHappensAfter);
+    cucorr_stat_handle(TsanCreateFiber);
 
     cucorr_stat_handle(Send);
     cucorr_stat_handle(Isend);
