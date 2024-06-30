@@ -28,6 +28,7 @@ config.cucorr_pass_dir = "@CUCORR_PASS_DIR@"
 config.cucorr_runtime_dir = "@CUCORR_RUNTIME_DIR@"
 config.cucorr_script_dir = "@CUCORR_SCRIPT_DIR@"
 config.cucorr_pass = "$<TARGET_FILE_NAME:cucorr::TransformPass>"
+config.cucorr_mpi_interceptor = "$<TARGET_FILE:cucorr::MPI_Interceptor>"
 
 
 # Let the main config do the real work.

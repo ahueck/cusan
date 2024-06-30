@@ -13,6 +13,7 @@
 #include "StatsCounter.h"
 #include "support/Table.h"
 // clang-format on
+#include <cstddef>
 #include <iostream>
 #include <map>
 
@@ -232,18 +233,22 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
       continue;
     }
     size_t alloc_size{0};
+    int alloc_id{0};
     auto* ptr         = kernel_args[i];
-    auto query_status = typeart_get_type_length(ptr, &alloc_size);
+    auto query_status = typeart_get_type(ptr, &alloc_id, &alloc_size);
     if (query_status != TYPEART_OK) {
       LOG_TRACE("Querying allocation length failed. Code: " << int(query_status))
       continue;
     }
+    const auto bytes_for_type = typeart_get_type_size(alloc_id);
+    const auto total_bytes    = bytes_for_type * alloc_size;
+
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
       LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << alloc_size)
-      TsanMemoryWritePC(ptr, alloc_size, __builtin_return_address(0));
+      TsanMemoryWritePC(ptr, total_bytes, __builtin_return_address(0));
     } else if (mode.state == cucorr::AccessState::kRead) {
       LOG_TRACE("[cucorr]    Read from " << ptr << " with size " << alloc_size)
-      TsanMemoryReadPC(ptr, alloc_size, __builtin_return_address(0));
+      TsanMemoryReadPC(ptr, total_bytes, __builtin_return_address(0));
     }
   }
 
