@@ -180,36 +180,38 @@ class Runtime {
  private:
   Runtime() = default;
 
-#undef stat_table_row_add
-#define stat_table_row_add(table, name) table.put(Row::make(#name, stats_recorder.get_##name()));
-
   ~Runtime() {
-    Table result_table{"Cucorr runtime statistics"};
-    // #if ENABLE_SOFTCOUNTER
-    stat_table_row_add(result_table, event_query_calls);
-    stat_table_row_add(result_table, stream_query_calls);
-    stat_table_row_add(result_table, device_free_calls);
-    stat_table_row_add(result_table, device_alloc_calls);
-    stat_table_row_add(result_table, managed_alloc_calls);
-    stat_table_row_add(result_table, host_unregister_calls);
-    stat_table_row_add(result_table, host_register_calls);
-    stat_table_row_add(result_table, stream_wait_event_calls);
-    stat_table_row_add(result_table, memset_async_calls);
-    stat_table_row_add(result_table, memcpy_async_calls);
-    stat_table_row_add(result_table, memset_calls);
-    stat_table_row_add(result_table, memcpy_calls);
-    stat_table_row_add(result_table, create_event_calls);
-    stat_table_row_add(result_table, create_stream_calls);
-    stat_table_row_add(result_table, sync_event_calls);
-    stat_table_row_add(result_table, sync_stream_calls);
-    stat_table_row_add(result_table, sync_device_calls);
-    stat_table_row_add(result_table, event_record_calls);
-    stat_table_row_add(result_table, kernel_register_calls);
-    stat_table_row_add(result_table, host_free_calls);
-    stat_table_row_add(result_table, host_alloc_calls);
-    stat_table_row_add(result_table, fiber_switches);
-    // #endif
+#undef cucorr_stat_handle
+#define cucorr_stat_handle(table, name) table.put(Row::make(#name, stats_recorder.get_##name()));
+#if ENABLE_SOFTCOUNTER
+    Table table{"Cucorr runtime statistics"};
+
+    cucorr_stat_handle(event_query_calls);
+    cucorr_stat_handle(stream_query_calls);
+    cucorr_stat_handle(device_free_calls);
+    cucorr_stat_handle(device_alloc_calls);
+    cucorr_stat_handle(managed_alloc_calls);
+    cucorr_stat_handle(host_unregister_calls);
+    cucorr_stat_handle(host_register_calls);
+    cucorr_stat_handle(stream_wait_event_calls);
+    cucorr_stat_handle(memset_async_calls);
+    cucorr_stat_handle(memcpy_async_calls);
+    cucorr_stat_handle(memset_calls);
+    cucorr_stat_handle(memcpy_calls);
+    cucorr_stat_handle(create_event_calls);
+    cucorr_stat_handle(create_stream_calls);
+    cucorr_stat_handle(sync_event_calls);
+    cucorr_stat_handle(sync_stream_calls);
+    cucorr_stat_handle(sync_device_calls);
+    cucorr_stat_handle(event_record_calls);
+    cucorr_stat_handle(kernel_register_calls);
+    cucorr_stat_handle(host_free_calls);
+    cucorr_stat_handle(host_alloc_calls);
+    cucorr_stat_handle(fiber_switches);
+
     result_table.print(std::cout);
+#endif
+#undef cucorr_stat_handle
   }
 };
 
@@ -350,7 +352,8 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cucorr]    "
+            << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.happens_before();
   runtime.switch_to_cpu();
@@ -358,10 +361,12 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if (alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) {
-    LOG_TRACE("[cucorr]    " << "Memset is synced")
+    LOG_TRACE("[cucorr]    "
+              << "Memset is synced")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cucorr]    " << "Memset is not synced")
+    LOG_TRACE("[cucorr]    "
+              << "Memset is not synced")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
     } else {

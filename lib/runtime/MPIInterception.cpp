@@ -1,4 +1,6 @@
+#include "StatsCounter.h"
 #include "TSan_External.h"
+#include "support/Table.h"
 
 #include <mpi.h>
 #include <threads.h>
@@ -10,6 +12,103 @@
 #define _EXTERN_C_
 #endif /* __cplusplus */
 #endif /* _EXTERN_C_ */
+
+namespace cucorr::mpi::runtime {
+
+using namespace cucorr::runtime::softcounter;
+
+#define cucorr_stat_handle(name) \
+  inline void inc_##name() {     \
+  }                              \
+  inline Counter get_##name() {  \
+    return 0;                    \
+  }
+class MPINoneRecorder final {
+ public:
+  cucorr_stat_handle(TsanMemoryRead);
+  cucorr_stat_handle(TsanMemoryWrite);
+  cucorr_stat_handle(TsanSwitchToFiber);
+  cucorr_stat_handle(TsanHappensBefore);
+  cucorr_stat_handle(TsanHappensAfter);
+
+  cucorr_stat_handle(Send);
+  cucorr_stat_handle(Isend);
+  cucorr_stat_handle(Recv);
+  cucorr_stat_handle(Irecv);
+  cucorr_stat_handle(Wait);
+  cucorr_stat_handle(Waitall);
+  cucorr_stat_handle(SendRecv);
+  cucorr_stat_handle(Reduce);
+  cucorr_stat_handle(AllReduce);
+  cucorr_stat_handle(Barrier);
+};
+
+#undef cucorr_stat_handle
+#define cucorr_stat_handle(name) \
+  AtomicCounter name = 0;        \
+  inline void inc_##name() {     \
+    this->name++;                \
+  }                              \
+  inline Counter get_##name() {  \
+    return this->name;           \
+  }
+
+struct MPIAccessRecorder final {
+ public:
+  cucorr_stat_handle(TsanMemoryRead);
+  cucorr_stat_handle(TsanMemoryWrite);
+  cucorr_stat_handle(TsanSwitchToFiber);
+  cucorr_stat_handle(TsanHappensBefore);
+  cucorr_stat_handle(TsanHappensAfter);
+
+  cucorr_stat_handle(Send);
+  cucorr_stat_handle(Isend);
+  cucorr_stat_handle(Recv);
+  cucorr_stat_handle(Irecv);
+  cucorr_stat_handle(Wait);
+  cucorr_stat_handle(Waitall);
+  cucorr_stat_handle(SendRecv);
+  cucorr_stat_handle(Reduce);
+  cucorr_stat_handle(AllReduce);
+  cucorr_stat_handle(Barrier);
+};
+
+#ifdef CUCORR_SOFTCOUNTER
+using MPIRecorder = MPIAccessRecorder;
+#else
+using MPIRecorder = MPINoneRecorder;
+#endif
+
+struct MPIRuntime final {
+  MPIRecorder mpi_recorder;
+  ~MPIRuntime() {
+#undef cucorr_stat_handle
+#define cucorr_stat_handle(name) table.put(Row::make(#name, mpi_recorder.get_##name()));
+#if CUCORR_SOFTCOUNTER
+    Table table{"Cucorr MPI runtime statistics"};
+    cucorr_stat_handle(TsanMemoryRead);
+    cucorr_stat_handle(TsanMemoryWrite);
+    cucorr_stat_handle(TsanSwitchToFiber);
+    cucorr_stat_handle(TsanHappensBefore);
+    cucorr_stat_handle(TsanHappensAfter);
+
+    cucorr_stat_handle(Send);
+    cucorr_stat_handle(Isend);
+    cucorr_stat_handle(Recv);
+    cucorr_stat_handle(Irecv);
+    cucorr_stat_handle(Wait);
+    cucorr_stat_handle(Waitall);
+    cucorr_stat_handle(SendRecv);
+    cucorr_stat_handle(Reduce);
+    cucorr_stat_handle(AllReduce);
+    cucorr_stat_handle(Barrier);
+
+    table.print(std::cout);
+#endif
+#undef cucorr_stat_handle
+  }
+};
+}  // namespace cucorr::mpi::runtime
 
 _EXTERN_C_ int PMPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
 
@@ -96,7 +195,7 @@ _EXTERN_C_ int MPI_Wait(MPI_Request* request, MPI_Status* status) {
 _EXTERN_C_ int PMPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status* array_of_statuses);
 _EXTERN_C_ int MPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Status* array_of_statuses) {
   int _wrap_py_return_val = PMPI_Waitall(count, array_of_requests, array_of_statuses);
-  
+
   for (int i = 0; i < count; ++i) {
     if (&(array_of_requests[i])) {
       TsanHappensAfter(&(array_of_requests[i]));

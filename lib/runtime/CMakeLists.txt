@@ -11,6 +11,21 @@ set_target_properties(
 )
 add_library(cucorr::MPI_Interceptor ALIAS cucorr_mpi_interceptor)
 target_compile_features(cucorr_mpi_interceptor PUBLIC cxx_std_17)
+target_compile_definitions(
+  cucorr_mpi_interceptor
+  PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
+   $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
+   $<$<BOOL:${CUCORR_SOFTCOUNTER}>:CUCORR_SOFTCOUNTER>
+)
+
+target_include_directories(cucorr_mpi_interceptor ${warning_guard}
+  PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/lib>
+)
+
+if(CUCORR_FIBERPOOL)
+  target_link_libraries(cucorr_mpi_interceptor PRIVATE cucorr::fiberpool)
+endif()
 
 set(CONFIG_NAME cucorrMPIInterceptor)
 set(TARGETS_EXPORT_NAME ${CONFIG_NAME}Targets)
@@ -69,6 +84,7 @@ target_compile_definitions(
   cucorr_Runtime
   PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
    $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
+   $<$<BOOL:${CUCORR_SOFTCOUNTER}>:CUCORR_SOFTCOUNTER>
 )
 
 set(CONFIG_NAME cucorrRuntime)
