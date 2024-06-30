@@ -183,8 +183,8 @@ class Runtime {
 
   ~Runtime() {
 #undef cucorr_stat_handle
-#define cucorr_stat_handle(table, name) table.put(Row::make(#name, stats_recorder.get_##name()));
-#if ENABLE_SOFTCOUNTER
+#define cucorr_stat_handle(name) table.put(Row::make(#name, stats_recorder.get_##name()));
+#if CUCORR_SOFTCOUNTER
     Table table{"Cucorr runtime statistics"};
 
     cucorr_stat_handle(event_query_calls);
@@ -210,7 +210,7 @@ class Runtime {
     cucorr_stat_handle(host_alloc_calls);
     cucorr_stat_handle(fiber_switches);
 
-    result_table.print(std::cout);
+    table.print(std::cout);
 #endif
 #undef cucorr_stat_handle
   }
