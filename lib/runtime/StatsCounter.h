@@ -40,7 +40,13 @@ class NoneRecorder {
   cucorr_stat_handle(kernel_register_calls);
   cucorr_stat_handle(host_free_calls);
   cucorr_stat_handle(host_alloc_calls);
-  cucorr_stat_handle(fiber_switches);
+
+  cucorr_stat_handle(TsanMemoryRead);
+  cucorr_stat_handle(TsanMemoryWrite);
+  cucorr_stat_handle(TsanSwitchToFiber);
+  cucorr_stat_handle(TsanHappensBefore);
+  cucorr_stat_handle(TsanHappensAfter);
+  cucorr_stat_handle(TsanCreateFiber);
 };
 
 #undef cucorr_stat_handle
@@ -76,7 +82,13 @@ struct AccessRecorder {
   cucorr_stat_handle(kernel_register_calls);
   cucorr_stat_handle(host_free_calls);
   cucorr_stat_handle(host_alloc_calls);
-  cucorr_stat_handle(fiber_switches);
+
+  cucorr_stat_handle(TsanMemoryRead);
+  cucorr_stat_handle(TsanMemoryWrite);
+  cucorr_stat_handle(TsanSwitchToFiber);
+  cucorr_stat_handle(TsanHappensBefore);
+  cucorr_stat_handle(TsanHappensAfter);
+  cucorr_stat_handle(TsanCreateFiber);
 };
 #undef cucorr_stat_handle
 }  // namespace softcounter

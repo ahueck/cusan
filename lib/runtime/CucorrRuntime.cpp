@@ -89,19 +89,21 @@ class Runtime {
 
   void happens_before() {
     TsanHappensBefore(curr_fiber_);
+    stats_recorder.inc_TsanHappensBefore();
   }
 
   void switch_to_cpu() {
     // without synchronization
     TsanSwitchToFiber(cpu_fiber_, 1);
+    stats_recorder.inc_TsanSwitchToFiber();
     curr_fiber_ = cpu_fiber_;
-    stats_recorder.inc_fiber_switches();
   }
 
   void register_stream(Stream stream) {
     auto search_result = streams_.find(stream);
     assert(search_result == streams_.end() && "Registered stream twice");
     TsanFiber fiber = TsanCreateFiber(0);
+    stats_recorder.inc_TsanCreateFiber();
     TsanSetFiberName(fiber, "cuda_stream");
     streams_.insert({stream, fiber});
   }
@@ -111,22 +113,24 @@ class Runtime {
     auto search_result = streams_.find(stream);
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     TsanSwitchToFiber(search_result->second, 0);
+    stats_recorder.inc_TsanSwitchToFiber();
     if (search_result->first.isDefaultStream()) {
       // then we are on the default stream and as such want to synchronize behind all other streams
       // unless they are nonBlocking
       for (auto& [s, sync_var] : streams_) {
         if (s.isBlocking) {
           TsanHappensAfter(sync_var);
+          stats_recorder.inc_TsanHappensAfter();
         }
       }
     }
-    stats_recorder.inc_fiber_switches();
     curr_fiber_ = search_result->second;
   }
 
   void happens_after_all_streams() {
     for (auto [_, fiber] : streams_) {
       TsanHappensAfter(fiber);
+      stats_recorder.inc_TsanHappensAfter();
     }
   }
 
@@ -134,6 +138,7 @@ class Runtime {
     auto search_result = streams_.find(stream);
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     TsanHappensAfter(search_result->second);
+    stats_recorder.inc_TsanHappensAfter();
   }
 
   void record_event(Event event, Stream stream) {
@@ -208,7 +213,12 @@ class Runtime {
     cucorr_stat_handle(kernel_register_calls);
     cucorr_stat_handle(host_free_calls);
     cucorr_stat_handle(host_alloc_calls);
-    cucorr_stat_handle(fiber_switches);
+    cucorr_stat_handle(TsanMemoryRead);
+    cucorr_stat_handle(TsanMemoryWrite);
+    cucorr_stat_handle(TsanSwitchToFiber);
+    cucorr_stat_handle(TsanHappensBefore);
+    cucorr_stat_handle(TsanHappensAfter);
+    cucorr_stat_handle(TsanCreateFiber);
 
     table.print(std::cout);
 #endif
@@ -246,9 +256,11 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
       LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << alloc_size)
       TsanMemoryWritePC(ptr, total_bytes, __builtin_return_address(0));
+      runtime.stats_recorder.inc_TsanMemoryWrite();
     } else if (mode.state == cucorr::AccessState::kRead) {
       LOG_TRACE("[cucorr]    Read from " << ptr << " with size " << alloc_size)
       TsanMemoryReadPC(ptr, total_bytes, __builtin_return_address(0));
+      runtime.stats_recorder.inc_TsanMemoryRead();
     }
   }
 
@@ -312,6 +324,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     // 4. For transfers from device memory to device memory, no host-side synchronization is performed.
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
     runtime.happens_before();
     runtime.switch_to_cpu();
@@ -320,7 +333,9 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     // has completed.
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
     runtime.happens_before();
     runtime.switch_to_cpu();
     runtime.happens_after_stream(Stream());
@@ -335,8 +350,10 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
     //   device memory
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     runtime.switch_to_stream(Stream());
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
     runtime.happens_before();
     runtime.switch_to_cpu();
     runtime.happens_after_stream(Stream());
@@ -344,7 +361,9 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     // 5. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
   } else {
     assert(false && "Should be unreachable");
   }
@@ -360,6 +379,7 @@ void _cucorr_memset(void* target, int, size_t count) {
   LOG_TRACE("[cucorr]    "
             << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
+  runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
   runtime.switch_to_cpu();
 
@@ -390,7 +410,9 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
   } else {
     // 1. For transfers between device memory and pageable host memory, the function *might* be synchronous with respect
     // to host.
@@ -400,7 +422,9 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
 
     runtime.switch_to_stream(Stream(stream));
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
     runtime.happens_before();
     runtime.switch_to_cpu();
   }
@@ -413,6 +437,7 @@ void _cucorr_memset_async(void* target, int, size_t count, RawStream stream) {
   runtime.stats_recorder.inc_memset_async_calls();
   runtime.switch_to_stream(Stream(stream));
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
+  runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
   runtime.switch_to_cpu();
 }
