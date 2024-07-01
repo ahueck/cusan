@@ -16,7 +16,7 @@ if(CUCORR_FIBERPOOL)
         #target_include_directories(cucorr_fiberpool SYSTEM INTERFACE ${fiber_pool_SOURCE_DIR})
         target_include_directories(cucorr_fiberpool SYSTEM PUBLIC  
             PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-            PRIVATE $<BUILD_INTERFACE:${fiber_pool_SOURCE_DIR}>
+            PUBLIC $<BUILD_INTERFACE:${fiber_pool_SOURCE_DIR}>
         )
         add_library(cucorr::fiberpool ALIAS cucorr_fiberpool)
         set_target_properties(
