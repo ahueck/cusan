@@ -2,6 +2,7 @@
 #include "TSan_External.h"
 #include "support/Table.h"
 
+#include <iostream>
 #include <mpi.h>
 #include <threads.h>
 

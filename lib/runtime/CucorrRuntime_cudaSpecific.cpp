@@ -27,8 +27,8 @@ cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from) {
   if (fromIsHostMem && !targetIsHostMem) {
     return cucorr_MemcpyHostToDevice;
   }
-  if (fromIsHostMem && targetIsHostMem) {
-    return cucorr_MemcpyHostToHost;
-  }
+  // if (fromIsHostMem && targetIsHostMem) {
+  return cucorr_MemcpyHostToHost;
+  // }
 }
 }  // namespace cucorr::runtime
