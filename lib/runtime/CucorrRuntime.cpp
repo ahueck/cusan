@@ -72,6 +72,7 @@ class Runtime {
   static Runtime& get() {
     static Runtime run_t;
     if (!run_t.init_) {
+      __pool_init();
       run_t.cpu_fiber_  = TsanGetCurrentFiber();
       run_t.curr_fiber_ = run_t.cpu_fiber_;
 

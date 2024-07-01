@@ -24,6 +24,10 @@ typedef unsigned long long a64;
 
 #include "cstdio"
 
+#ifdef CUCORR_FIBERPOOL
+#include "fiberpool.h"
+#endif
+
 #ifdef MUST_DEBUG
 // Print an error message *once* if an annotation function is used that is not overwritten by the
 // TSan runtime
@@ -229,8 +233,10 @@ void __attribute__((weak)) __tsan_set_fiber_name(void* fiber, const char* name) 
 }
 #endif
 
+
 #define TsanHappensBefore(cv) AnnotateHappensBefore(__FILE__, __LINE__, cv)
 #define TsanHappensAfter(cv) AnnotateHappensAfter(__FILE__, __LINE__, cv)
+
 
 #define TsanIgnoreWritesBegin() AnnotateIgnoreWritesBegin(__FILE__, __LINE__)
 #define TsanIgnoreWritesEnd() AnnotateIgnoreWritesEnd(__FILE__, __LINE__)
@@ -242,11 +248,13 @@ void __attribute__((weak)) __tsan_set_fiber_name(void* fiber, const char* name) 
 #define TsanInitTLC(cv) AnnotateInitTLC(__FILE__, __LINE__, cv)
 #define TsanStartTLC(cv) AnnotateStartTLC(__FILE__, __LINE__, cv)
 
+#ifndef CUCORR_FIBERPOOL
 #define TsanCreateFiber(flags) __tsan_create_fiber(flags)
 #define TsanDestroyFiber(fiber) __tsan_destroy_fiber(fiber)
 #define TsanSwitchToFiber(fiber, flags) __tsan_switch_to_fiber(fiber, flags)
 #define TsanGetCurrentFiber() __tsan_get_current_fiber()
 #define TsanSetFiberName(fiber, name) __tsan_set_fiber_name(fiber, name)
+#endif
 
 #define TsanMemoryRead(addr, size) __tsan_read_range(addr, size)
 #define TsanMemoryWrite(addr, size) __tsan_write_range(addr, size)
