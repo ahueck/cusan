@@ -24,7 +24,10 @@ target_include_directories(cucorr_mpi_interceptor ${warning_guard}
 )
 
 if(CUCORR_FIBERPOOL)
-  target_link_libraries(cucorr_mpi_interceptor PRIVATE cucorr::fiberpool)
+  target_link_libraries(cucorr_mpi_interceptor PUBLIC cucorr::fiberpool)
+  set_target_properties(cucorr_mpi_interceptor PROPERTIES
+        BUILD_WITH_INSTALL_RPATH FALSE
+        LINK_FLAGS "-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 set(CONFIG_NAME cucorrMPIInterceptor)
@@ -63,7 +66,10 @@ target_compile_features(cucorr_Runtime PUBLIC cxx_std_17)
 target_link_libraries(cucorr_Runtime PRIVATE typeart::Runtime)
 
 if(CUCORR_FIBERPOOL)
-  target_link_libraries(cucorr_Runtime PRIVATE cucorr::fiberpool)
+  target_link_libraries(cucorr_Runtime PUBLIC cucorr::fiberpool)
+  set_target_properties(cucorr_Runtime PROPERTIES
+      BUILD_WITH_INSTALL_RPATH FALSE
+      LINK_FLAGS "-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 
