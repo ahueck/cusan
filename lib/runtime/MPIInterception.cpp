@@ -18,6 +18,18 @@ namespace cucorr::mpi::runtime {
 
 using namespace cucorr::runtime::softcounter;
 
+#define CUCORR_MPI_EVENTS        \
+  cucorr_stat_handle(Send);      \
+  cucorr_stat_handle(Isend);     \
+  cucorr_stat_handle(Recv);      \
+  cucorr_stat_handle(Irecv);     \
+  cucorr_stat_handle(Wait);      \
+  cucorr_stat_handle(Waitall);   \
+  cucorr_stat_handle(SendRecv);  \
+  cucorr_stat_handle(Reduce);    \
+  cucorr_stat_handle(AllReduce); \
+  cucorr_stat_handle(Barrier);
+
 #define cucorr_stat_handle(name) \
   inline void inc_##name() {     \
   }                              \
@@ -26,23 +38,8 @@ using namespace cucorr::runtime::softcounter;
   }
 class MPINoneRecorder final {
  public:
-  cucorr_stat_handle(TsanMemoryRead);
-  cucorr_stat_handle(TsanMemoryWrite);
-  cucorr_stat_handle(TsanSwitchToFiber);
-  cucorr_stat_handle(TsanHappensBefore);
-  cucorr_stat_handle(TsanHappensAfter);
-  cucorr_stat_handle(TsanCreateFiber);
-
-  cucorr_stat_handle(Send);
-  cucorr_stat_handle(Isend);
-  cucorr_stat_handle(Recv);
-  cucorr_stat_handle(Irecv);
-  cucorr_stat_handle(Wait);
-  cucorr_stat_handle(Waitall);
-  cucorr_stat_handle(SendRecv);
-  cucorr_stat_handle(Reduce);
-  cucorr_stat_handle(AllReduce);
-  cucorr_stat_handle(Barrier);
+#include "TsanEvents.inc"
+  CUCORR_MPI_EVENTS
 };
 
 #undef cucorr_stat_handle
@@ -57,23 +54,8 @@ class MPINoneRecorder final {
 
 struct MPIAccessRecorder final {
  public:
-  cucorr_stat_handle(TsanMemoryRead);
-  cucorr_stat_handle(TsanMemoryWrite);
-  cucorr_stat_handle(TsanSwitchToFiber);
-  cucorr_stat_handle(TsanHappensBefore);
-  cucorr_stat_handle(TsanHappensAfter);
-  cucorr_stat_handle(TsanCreateFiber);
-
-  cucorr_stat_handle(Send);
-  cucorr_stat_handle(Isend);
-  cucorr_stat_handle(Recv);
-  cucorr_stat_handle(Irecv);
-  cucorr_stat_handle(Wait);
-  cucorr_stat_handle(Waitall);
-  cucorr_stat_handle(SendRecv);
-  cucorr_stat_handle(Reduce);
-  cucorr_stat_handle(AllReduce);
-  cucorr_stat_handle(Barrier);
+#include "TsanEvents.inc"
+  CUCORR_MPI_EVENTS
 };
 
 #ifdef CUCORR_SOFTCOUNTER
@@ -94,27 +76,12 @@ struct MPIRuntime final {
 #define cucorr_stat_handle(name) table.put(Row::make(#name, mpi_recorder.get_##name()));
 #if CUCORR_SOFTCOUNTER
     Table table{"Cucorr MPI runtime statistics"};
-    cucorr_stat_handle(TsanMemoryRead);
-    cucorr_stat_handle(TsanMemoryWrite);
-    cucorr_stat_handle(TsanSwitchToFiber);
-    cucorr_stat_handle(TsanHappensBefore);
-    cucorr_stat_handle(TsanHappensAfter);
-    cucorr_stat_handle(TsanCreateFiber);
-
-    cucorr_stat_handle(Send);
-    cucorr_stat_handle(Isend);
-    cucorr_stat_handle(Recv);
-    cucorr_stat_handle(Irecv);
-    cucorr_stat_handle(Wait);
-    cucorr_stat_handle(Waitall);
-    cucorr_stat_handle(SendRecv);
-    cucorr_stat_handle(Reduce);
-    cucorr_stat_handle(AllReduce);
-    cucorr_stat_handle(Barrier);
-
+#include "TsanEvents.inc"
+    CUCORR_MPI_EVENTS
     table.print(std::cout);
 #endif
 #undef cucorr_stat_handle
+#undef CUCORR_MPI_EVENTS
   }
 
  private:

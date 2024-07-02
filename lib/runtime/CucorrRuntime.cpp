@@ -72,7 +72,9 @@ class Runtime {
   static Runtime& get() {
     static Runtime run_t;
     if (!run_t.init_) {
-      __pool_init();
+#ifdef CUCORR_FIBERPOOL
+      TsanFiberPoolInit();
+#endif
       run_t.cpu_fiber_  = TsanGetCurrentFiber();
       run_t.curr_fiber_ = run_t.cpu_fiber_;
 
@@ -192,38 +194,16 @@ class Runtime {
 #define cucorr_stat_handle(name) table.put(Row::make(#name, stats_recorder.get_##name()));
 #if CUCORR_SOFTCOUNTER
     Table table{"Cucorr runtime statistics"};
-
-    cucorr_stat_handle(event_query_calls);
-    cucorr_stat_handle(stream_query_calls);
-    cucorr_stat_handle(device_free_calls);
-    cucorr_stat_handle(device_alloc_calls);
-    cucorr_stat_handle(managed_alloc_calls);
-    cucorr_stat_handle(host_unregister_calls);
-    cucorr_stat_handle(host_register_calls);
-    cucorr_stat_handle(stream_wait_event_calls);
-    cucorr_stat_handle(memset_async_calls);
-    cucorr_stat_handle(memcpy_async_calls);
-    cucorr_stat_handle(memset_calls);
-    cucorr_stat_handle(memcpy_calls);
-    cucorr_stat_handle(create_event_calls);
-    cucorr_stat_handle(create_stream_calls);
-    cucorr_stat_handle(sync_event_calls);
-    cucorr_stat_handle(sync_stream_calls);
-    cucorr_stat_handle(sync_device_calls);
-    cucorr_stat_handle(event_record_calls);
-    cucorr_stat_handle(kernel_register_calls);
-    cucorr_stat_handle(host_free_calls);
-    cucorr_stat_handle(host_alloc_calls);
-    cucorr_stat_handle(TsanMemoryRead);
-    cucorr_stat_handle(TsanMemoryWrite);
-    cucorr_stat_handle(TsanSwitchToFiber);
-    cucorr_stat_handle(TsanHappensBefore);
-    cucorr_stat_handle(TsanHappensAfter);
-    cucorr_stat_handle(TsanCreateFiber);
-
+    CUCORR_CUDA_EVENT_LIST
+#include "TsanEvents.inc"
     table.print(std::cout);
 #endif
 #undef cucorr_stat_handle
+#undef CUCORR_CUDA_EVENT_LIST
+
+#ifdef CUCORR_FIBERPOOL
+    TsanFiberPoolFini();
+#endif
   }
 };
 
