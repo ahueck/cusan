@@ -509,7 +509,7 @@ function typeart_compile_cuda_device_fn() {
     -fPIC -x cuda "${typeart_source_file}" --cuda-device-only --cuda-gpu-arch=${typeart_cuda_code_arch} -o - |
     typeart_opt_fn "${out_basename}"_cucorr_gpu_mem2reg.ll -mem2reg |
     typeart_opt_fn "${out_basename}"_cucorr_gpu.ll ${cucorr_plugin} ${cucorr_gpu_mode} |
-    typeart_opt_fn "${out_basename}"_cucorr_gpu_mem2reg.ll ${typeart_optimize} |
+    typeart_opt_fn "${out_basename}"_cucorr_gpu_opt.ll ${typeart_optimize} |
     $typeart_llc_tool -dwarf-directory=0 -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
     -o "${out_basename}".ptx
 
