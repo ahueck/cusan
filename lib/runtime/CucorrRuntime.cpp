@@ -302,7 +302,16 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
 
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memcpy_calls();
-  if (kind == cucorr_MemcpyDeviceToDevice) {
+  if (CUCORR_SYNC_DETAIL_LEVEL == 0) {
+    runtime.switch_to_stream(Stream());
+    TsanMemoryReadPC(from, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryRead();
+    TsanMemoryWritePC(target, count, __builtin_return_address(0));
+    runtime.stats_recorder.inc_TsanMemoryWrite();
+    runtime.happens_before();
+    runtime.switch_to_cpu();
+    runtime.happens_after_stream(Stream());
+  } else if (kind == cucorr_MemcpyDeviceToDevice) {
     // 4. For transfers from device memory to device memory, no host-side synchronization is performed.
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
@@ -358,8 +367,7 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cucorr]    "
-            << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -367,17 +375,15 @@ void _cucorr_memset(void* target, int, size_t count) {
 
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
-  if (alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is synced")
+  if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
+    LOG_TRACE("[cucorr]    " << "Memset is synced")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is not synced")
+    LOG_TRACE("[cucorr]    " << "Memset is not synced")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
-    } else {
-      LOG_TRACE("[cucorr]    " << alloc_info->is_pinned << " " << alloc_info->is_managed)
+    } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {
+      LOG_TRACE("[cucorr]    Pinned:" << alloc_info->is_pinned << " Managed:" << alloc_info->is_managed)
     }
   }
 
@@ -388,7 +394,7 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
   LOG_TRACE("[cucorr]MemcpyAsync" << count << " bytes to:" << target)
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memcpy_async_calls();
-  if (kind == cucorr_MemcpyHostToHost) {
+  if (kind == cucorr_MemcpyHostToHost && CUCORR_SYNC_DETAIL_LEVEL == 1) {
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
