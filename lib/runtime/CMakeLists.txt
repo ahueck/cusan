@@ -89,6 +89,7 @@ cucorr_target_define_file_basename(cucorr_Runtime)
 target_compile_definitions(
   cucorr_Runtime
   PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
+  CUCORR_SYNC_DETAIL_LEVEL=${CUCORR_SYNC_DETAIL_LEVEL_RT}
    $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
    $<$<BOOL:${CUCORR_SOFTCOUNTER}>:CUCORR_SOFTCOUNTER>
 )

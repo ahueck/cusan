@@ -50,7 +50,7 @@ int main() {
   cudaMalloc(&data, size * sizeof(int));
   cudaMemset(data, 0, size * sizeof(int));
 
-  //cudaDeviceSynchronize();
+  cudaDeviceSynchronize();
   
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(data, size, 1316134912);
 #ifdef CUCORR_SYNC

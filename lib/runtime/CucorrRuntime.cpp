@@ -19,9 +19,6 @@
 
 namespace cucorr::runtime {
 
-// #define CUCORR_SYNC_DETAIL_LEVEL 0
-#define CUCORR_SYNC_DETAIL_LEVEL 0
-
 struct Stream {
   RawStream handle;
 
