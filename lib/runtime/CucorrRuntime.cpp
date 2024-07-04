@@ -4,7 +4,6 @@
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
 
-#define CUCORR_LOG_LEVEL 3
 #include "CucorrRuntime.h"
 // clang-format off
 #include "RuntimeInterface.h"
@@ -17,6 +16,10 @@
 #include <cstddef>
 #include <iostream>
 #include <map>
+
+#ifndef CUCORR_SYNC_DETAIL_LEVEL
+#define CUCORR_SYNC_DETAIL_LEVEL 0
+#endif
 
 namespace cucorr::runtime {
 
@@ -303,6 +306,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memcpy_calls();
   if (CUCORR_SYNC_DETAIL_LEVEL == 0) {
+    // In this mode: Memcpy always blocks, no detailed view w.r.t. memory direction
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
@@ -367,7 +371,8 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cucorr]    "
+            << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -376,10 +381,12 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
-    LOG_TRACE("[cucorr]    " << "Memset is synced")
+    LOG_TRACE("[cucorr]    "
+              << "Memset is synced")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cucorr]    " << "Memset is not synced")
+    LOG_TRACE("[cucorr]    "
+              << "Memset is not synced")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {

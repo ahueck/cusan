@@ -44,6 +44,7 @@ set(CUCORR_LOG_LEVEL_RT 3 CACHE STRING "Granularity of runtime logger. 3 is most
 
 option(CUCORR_FIBERPOOL "Use external fiber pool to manage ThreadSanitizer fibers" OFF)
 option(CUCORR_SOFTCOUNTER "Print runtime counters" ON)
+option(CUCORR_SYNC_DETAIL_LEVEL "Enable implicit sync analysis of memcpy/memset" ON)
 
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
