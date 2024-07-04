@@ -377,7 +377,7 @@ void _cucorr_memset(void* target, int, size_t count) {
 
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
-  if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 1) {
+  if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
     LOG_TRACE("[cucorr]    " << "Memset is synced")
     runtime.happens_after_stream(Stream());
   } else {
