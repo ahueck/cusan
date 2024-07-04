@@ -129,7 +129,7 @@ void __attribute__((weak)) __tsan_write8_pc(void* addr, void* pc) {
 
 #define annotateHelper(rw, s)                                            \
   if (len >= s) {                                                        \
-    /*printf("annotateHelper(%s, %i, %p, %li)\n", #rw, s, addr, (uptr)pc);*/ \
+    printf("annotateHelper(%s, %i, %p, %li)\n", #rw, s, addr, (uptr)pc); \
     len -= s;                                                            \
     __tsan_##rw##s##_pc(addr, pc);                                       \
     addr += s;                                                           \
@@ -152,7 +152,7 @@ void __attribute__((weak)) __tsan_read_range_pc(const void* a, uptr size, void* 
 void __attribute__((weak)) __tsan_write_range_pc(void* a, uptr size, void* pc) {
   char* addr = (char*)a;
   uptr len   = ((uptr)addr) % 8;
-  // printf("__tsan_write_range_pc(%p, %li, %li), %li\n", addr, size, pc, len);
+  printf("__tsan_write_range_pc(%p, %li, %li), %li\n", addr, size, pc, len);
   if (size < len)
     len = size;
   annotateHelper(write, 4) annotateHelper(write, 2) annotateHelper(write, 1) for (; size > 7; size -= 8) {
@@ -233,10 +233,8 @@ void __attribute__((weak)) __tsan_set_fiber_name(void* fiber, const char* name) 
 }
 #endif
 
-
 #define TsanHappensBefore(cv) AnnotateHappensBefore(__FILE__, __LINE__, cv)
 #define TsanHappensAfter(cv) AnnotateHappensAfter(__FILE__, __LINE__, cv)
-
 
 #define TsanIgnoreWritesBegin() AnnotateIgnoreWritesBegin(__FILE__, __LINE__)
 #define TsanIgnoreWritesEnd() AnnotateIgnoreWritesEnd(__FILE__, __LINE__)
@@ -263,7 +261,6 @@ void __attribute__((weak)) __tsan_set_fiber_name(void* fiber, const char* name) 
 
 #define TsanFuncEntry(pc) __tsan_func_entry(pc)
 #define TsanFuncExit() __tsan_func_exit()
-
 
 #define TsanPCMemoryRead(pc, addr, size) AnnotatePCMemoryRead(pc, __FILE__, __LINE__, addr, size)
 #define TsanPCMemoryWrite(pc, addr, size) AnnotatePCMemoryWrite(pc, __FILE__, __LINE__, addr, size)

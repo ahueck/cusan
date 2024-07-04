@@ -4,6 +4,7 @@
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
 
+#define CUCORR_LOG_LEVEL 3
 #include "CucorrRuntime.h"
 // clang-format off
 #include "RuntimeInterface.h"
@@ -235,11 +236,11 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
     const auto total_bytes    = bytes_for_type * alloc_size;
 
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
-      LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << alloc_size)
+      LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << total_bytes)
       TsanMemoryWritePC(ptr, total_bytes, __builtin_return_address(0));
       runtime.stats_recorder.inc_TsanMemoryWrite();
     } else if (mode.state == cucorr::AccessState::kRead) {
-      LOG_TRACE("[cucorr]    Read from " << ptr << " with size " << alloc_size)
+      LOG_TRACE("[cucorr]    Read from " << ptr << " with size " << total_bytes)
       TsanMemoryReadPC(ptr, total_bytes, __builtin_return_address(0));
       runtime.stats_recorder.inc_TsanMemoryRead();
     }
