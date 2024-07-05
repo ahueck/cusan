@@ -1,16 +1,16 @@
 // clang-format off
-// RUN: %wrapper-cxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %tsan-options %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s -DFILENAME=%s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
+// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s -DFILENAME=%s
 
-//// RUN: %wrapper-cxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-//// RUN: %tsan-options %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-SYNC
+// UN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
+// UN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-SYNC
 // clang-format on
 
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
-//// CHECK-SYNC-NOT: data race
-//// CHECK-SYNC-NOT: [Error] sync
+// HECK-SYNC-NOT: data race
+// HECK-SYNC-NOT: [Error] sync
 
 #include <cstdio>
 #include <mpi.h>
@@ -55,13 +55,14 @@ int main(int argc, char *argv[]) {
     double *dev_buf, *host_buf;
     cudaStream_t kernel_stream, streams[CHUNKS];
     cudaMalloc(&dev_buf, SIZE * sizeof(double));
-    cudaMallocHost(&host_buf, SIZE * sizeof(double));
+    host_buf = (double*)malloc(SIZE * sizeof(double));
 
     // Create CUDA streams
     cudaStreamCreate(&kernel_stream);
     for (int j = 0; j < CHUNKS; j++) {
         cudaStreamCreate(&streams[j]);
     }
+    printf("Created Streams!\n");
 
     if (world_rank == SENDER) { /* sender */
         computation_on_GPU(dev_buf, kernel_stream);
@@ -104,13 +105,13 @@ int main(int argc, char *argv[]) {
         // Use the received data (host_buf) on the GPU or CPU as needed
         // Example: Copy received data to the GPU
         cudaMemcpy(dev_buf, host_buf, SIZE * sizeof(double), cudaMemcpyHostToDevice);
-
+        MPI_Barrier(MPI_COMM_WORLD);
         more_computation_on_GPU(dev_buf);
     }
 
     // Cleanup
     cudaFree(dev_buf);
-    cudaFreeHost(host_buf);
+    free(host_buf);
     cudaStreamDestroy(kernel_stream);
     for (int j = 0; j < CHUNKS; j++) {
         cudaStreamDestroy(streams[j]);
