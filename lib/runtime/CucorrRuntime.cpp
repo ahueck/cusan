@@ -200,13 +200,13 @@ class Runtime {
     Table table{"Cucorr runtime statistics"};
     CUCORR_CUDA_EVENT_LIST
 #include "TsanEvents.inc"
-    table.put(Row::make("TsanMemoryReadSize[KB]", stats_recorder.stats_r.getAverage() / 1024.0));
-    table.put(Row::make("TsanMemoryWriteSize[KB]", stats_recorder.stats_w.getAverage() / 1024.0));
+    table.put(Row::make("TsanMemoryReadSize[KB]", stats_recorder.stats_r.getAvg() / 1024.0));
+    table.put(Row::make("TsanMemoryWriteSize[KB]", stats_recorder.stats_w.getAvg() / 1024.0));
     table.print(std::cout);
     std::cout << "TsanMemRead stats (size in b): \n";
-    stats_recorder.stats_r.printHistogram(std::cout);
+    stats_recorder.stats_r.printHist(std::cout);
     std::cout << "TsanMemWrite stats (size in b): \n";
-    stats_recorder.stats_w.printHistogram(std::cout);
+    stats_recorder.stats_w.printHist(std::cout);
 #endif
 #undef cucorr_stat_handle
 #undef CUCORR_CUDA_EVENT_LIST

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <iostream>
 #include <limits.h>
 #include <map>
@@ -44,34 +45,22 @@ using AtomicCounter = std::atomic<Counter>;
 class Statistics {
  private:
   std::vector<unsigned> numbers{};
-  std::map<unsigned, unsigned> histogram{};
   unsigned min{UINT_MAX};
   unsigned max{0};
-  unsigned bucketSize{10};
-
-  unsigned getBucket(unsigned number) const {
-    if (number <= 8) {
-      return number;
-    }
-    return (number / bucketSize) * bucketSize;
-  }
 
  public:
-  Statistics(unsigned bucketSize = 10) : bucketSize(bucketSize) {
-  }
-
   void addNumber(unsigned number) {
     numbers.push_back(number);
-    unsigned bucket = getBucket(number);
-    histogram[bucket]++;
 
-    if (number < min)
+    if (number < min) {
       min = number;
-    if (number > max)
+    }
+    if (number > max) {
       max = number;
+    }
   }
 
-  double getAverage() const {
+  double getAvg() const {
     if (numbers.empty()) {
       return 0.0;
     }
@@ -80,15 +69,16 @@ class Statistics {
     return average;
   }
 
-  unsigned getMin() const {
-    return min;
-  }
+  void printHist(std::ostream& s) const {
+    unsigned bucketSize{12};
+    const auto bucket_f = [&](unsigned number) { return unsigned(std::floor(double(number) / double(bucketSize))); };
 
-  unsigned getMax() const {
-    return max;
-  }
+    std::map<unsigned, unsigned> histogram{};
+    for (const auto number : numbers) {
+      const auto bucket = bucket_f(number);
+      histogram[bucket]++;
+    }
 
-  void printHistogram(std::ostream& s) const {
     for (const auto& pair : histogram) {
       s << "[" << pair.first << " - " << (pair.first + bucketSize - 1) << "]: " << pair.second << ", ";
     }
