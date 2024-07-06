@@ -306,6 +306,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memcpy_calls();
   if (CUCORR_SYNC_DETAIL_LEVEL == 0) {
+    LOG_TRACE("[cucorr]   DefaultStream+Blocking")
     // In this mode: Memcpy always blocks, no detailed view w.r.t. memory direction
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
@@ -317,6 +318,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
     runtime.happens_after_stream(Stream());
   } else if (kind == cucorr_MemcpyDeviceToDevice) {
     // 4. For transfers from device memory to device memory, no host-side synchronization is performed.
+    LOG_TRACE("[cucorr]   DefaultStream")
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
@@ -326,6 +328,7 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   } else if (kind == cucorr_MemcpyDeviceToHost) {
     // 3. For transfers from device to either pageable or pinned host memory, the function returns only once the copy
     // has completed.
+    LOG_TRACE("[cucorr]   DefaultStream+Blocking")
     runtime.switch_to_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
@@ -337,10 +340,14 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   } else if (kind == cucorr_MemcpyHostToDevice) {
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
+    
     auto* alloc_info = runtime.get_allocation_info(from);
     // if we couldnt find alloc info we just assume the worst and dont sync
     if (alloc_info && !alloc_info->is_pinned) {
       runtime.happens_after_stream(Stream());
+      LOG_TRACE("[cucorr]   DefaultStream+Blocking")
+    }else{
+      LOG_TRACE("[cucorr]   DefaultStream")
     }
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
     //   device memory
@@ -355,6 +362,11 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   } else if (kind == cucorr_MemcpyHostToHost) {
     // 5. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
+    LOG_TRACE("[cucorr]   DefaultStream+Blocking")
+    runtime.switch_to_stream(Stream());
+    runtime.happens_before();
+    runtime.switch_to_cpu();
+    runtime.happens_after_stream(Stream());
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
@@ -382,11 +394,11 @@ void _cucorr_memset(void* target, int, size_t count) {
   // if we couldnt find alloc info we just assume the worst and dont sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
     LOG_TRACE("[cucorr]    "
-              << "Memset is synced")
+              << "Memset is blocking")
     runtime.happens_after_stream(Stream());
   } else {
     LOG_TRACE("[cucorr]    "
-              << "Memset is not synced")
+              << "Memset is not blocking")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {
@@ -404,6 +416,7 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
   if (kind == cucorr_MemcpyHostToHost && CUCORR_SYNC_DETAIL_LEVEL == 1) {
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
+    LOG_TRACE("[cucorr]   Blocking")
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
@@ -414,7 +427,7 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
     // 2. If pageable memory must first be staged to pinned memory, the driver *may* synchronize with the stream and
     // stage the copy into pinned memory.
     // 4. For all other transfers, the function should be fully asynchronous.
-
+    LOG_TRACE("[cucorr]   not Blocking")
     runtime.switch_to_stream(Stream(stream));
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
