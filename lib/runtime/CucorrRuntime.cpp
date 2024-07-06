@@ -200,7 +200,13 @@ class Runtime {
     Table table{"Cucorr runtime statistics"};
     CUCORR_CUDA_EVENT_LIST
 #include "TsanEvents.inc"
+    table.put(Row::make("TsanMemoryReadSize[KB]", stats_recorder.stats_r.getAverage() / 1024.0));
+    table.put(Row::make("TsanMemoryWriteSize[KB]", stats_recorder.stats_w.getAverage() / 1024.0));
     table.print(std::cout);
+    std::cout << "TsanMemRead stats (size in b): \n";
+    stats_recorder.stats_r.printHistogram(std::cout);
+    std::cout << "TsanMemWrite stats (size in b): \n";
+    stats_recorder.stats_w.printHistogram(std::cout);
 #endif
 #undef cucorr_stat_handle
 #undef CUCORR_CUDA_EVENT_LIST
@@ -241,11 +247,11 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
       LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << total_bytes)
       TsanMemoryWritePC(ptr, total_bytes, __builtin_return_address(0));
-      runtime.stats_recorder.inc_TsanMemoryWrite();
+      runtime.stats_recorder.inc_TsanMemoryWriteCount(total_bytes);
     } else if (mode.state == cucorr::AccessState::kRead) {
       LOG_TRACE("[cucorr]    Read from " << ptr << " with size " << total_bytes)
       TsanMemoryReadPC(ptr, total_bytes, __builtin_return_address(0));
-      runtime.stats_recorder.inc_TsanMemoryRead();
+      runtime.stats_recorder.inc_TsanMemoryReadCount(total_bytes);
     }
   }
 
@@ -340,13 +346,13 @@ void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyK
   } else if (kind == cucorr_MemcpyHostToDevice) {
     // 1. For transfers from pageable host memory to device memory, a stream sync is performed before the copy is
     // initiated.
-    
+
     auto* alloc_info = runtime.get_allocation_info(from);
     // if we couldnt find alloc info we just assume the worst and dont sync
     if (alloc_info && !alloc_info->is_pinned) {
       runtime.happens_after_stream(Stream());
       LOG_TRACE("[cucorr]   DefaultStream+Blocking")
-    }else{
+    } else {
       LOG_TRACE("[cucorr]   DefaultStream")
     }
     //   The function will return once the pageable buffer has been copied to the staging memory for DMA transfer to
