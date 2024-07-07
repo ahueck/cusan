@@ -80,7 +80,9 @@ class Statistics {
     }
 
     for (const auto& pair : histogram) {
-      s << "[" << pair.first << " - " << (pair.first + bucketSize - 1) << "]: " << pair.second << ", ";
+      const auto bytes_low  = pair.first * bucketSize;
+      const auto bytes_high = bytes_low + bucketSize - 1;
+      s << "[" << bytes_low << " - " << bytes_high << "]: " << pair.second << ", ";
     }
     s << "\n";
   }
