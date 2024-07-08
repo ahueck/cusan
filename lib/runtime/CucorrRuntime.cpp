@@ -469,10 +469,10 @@ void _cucorr_stream_wait_event(RawStream stream, Event event, unsigned int flags
 void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   // atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
   //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
-  LOG_TRACE("[cucorr]host alloc " << *ptr << " with size " << size << " -> implicit device sync")
+  LOG_TRACE("[cucorr]host alloc " << *ptr << " with size " << size)
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_host_alloc_calls();
-  runtime.happens_after_all_streams();
+  //runtime.happens_after_all_streams();
 
   runtime.insert_allocation(*ptr, AllocationInfo{size, true, false});
 }
