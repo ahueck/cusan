@@ -63,9 +63,7 @@ int main(int argc, char* argv[]) {
   } else if (world_rank == 1) {
     MPI_Recv(d_data, half_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&d_data[half_size], half_size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  }
 
-  if (world_rank == 1) {
     int* h_data = (int*)malloc(size * sizeof(int));
     cudaMemcpyAsync(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);

@@ -51,7 +51,7 @@ int main() {
   
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(data, size, 1316134912);
 #ifdef CUCORR_SYNC
-  cudaMalloc(&d_data2, size);
+  cudaMallocManaged(&d_data2, size);
 #endif
   //write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(data2, size, 1);
   cudaMemcpyAsync(h_data, data, size*sizeof(int), cudaMemcpyDefault, stream2);
