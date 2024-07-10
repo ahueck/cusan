@@ -78,16 +78,14 @@ int main(int argc, char *argv[]) {
                             chunk_size * sizeof(double), cudaMemcpyDeviceToHost, streams[j]);
         }
 
+        MPI_Request requests[CHUNKS];
         for (int j = 0; j < CHUNKS; j++) {
             // Explicit GPU sync before MPI
             cudaStreamSynchronize(streams[j]);
             int offset = j * chunk_size;
-            MPI_Request req;
-            MPI_Isend(host_buf + offset, chunk_size, MPI_DOUBLE, RECIEVER, 0, MPI_COMM_WORLD, &req);
+            MPI_Isend(host_buf + offset, chunk_size, MPI_DOUBLE, RECIEVER, 0, MPI_COMM_WORLD,  &requests[j]);
         }
-
-        // Explicit MPI sync before GPU kernel
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Waitall(CHUNKS, requests, MPI_STATUSES_IGNORE);
 
         more_computation_on_GPU(dev_buf);
 
@@ -105,7 +103,6 @@ int main(int argc, char *argv[]) {
         // Use the received data (host_buf) on the GPU or CPU as needed
         // Example: Copy received data to the GPU
         cudaMemcpy(dev_buf, host_buf, SIZE * sizeof(double), cudaMemcpyHostToDevice);
-        MPI_Barrier(MPI_COMM_WORLD);
         more_computation_on_GPU(dev_buf);
     }
 

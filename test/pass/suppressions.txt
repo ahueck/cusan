@@ -1,6 +1,7 @@
 called_from_lib:libmpi_cxx*
 called_from_lib:libmpi.so*
 called_from_lib:libcuda.so*
+called_from_lib:libtypeartRuntime.so*
 
 # Probably not required, from previous experiments
 #called_from_lib:libucx*

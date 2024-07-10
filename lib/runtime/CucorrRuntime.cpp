@@ -225,24 +225,43 @@ using namespace cucorr::runtime;
 
 void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream stream) {
   LOG_TRACE("[cucorr]Kernel Register with " << n << " Args and on stream:" << stream)
-  auto& runtime = Runtime::get();
-  runtime.stats_recorder.inc_kernel_register_calls();
-  runtime.switch_to_stream(Stream(stream));
+
+  llvm::SmallVector<size_t, 4> sizes;
   for (int i = 0; i < n; ++i) {
     const auto mode = cucorr::runtime::access_cast_back(modes[i]);
     if (!mode.is_ptr) {
+      sizes.push_back(0);
       continue;
     }
+
     size_t alloc_size{0};
     int alloc_id{0};
     auto* ptr         = kernel_args[i];
     auto query_status = typeart_get_type(ptr, &alloc_id, &alloc_size);
     if (query_status != TYPEART_OK) {
-      LOG_TRACE("Querying allocation length failed. Code: " << int(query_status))
+      LOG_TRACE("Querying allocation length failed on " << ptr << ". Code: " << int(query_status))
+      sizes.push_back(0);
       continue;
     }
+    
+    
     const auto bytes_for_type = typeart_get_type_size(alloc_id);
     const auto total_bytes    = bytes_for_type * alloc_size;
+    LOG_TRACE("Querying allocation length of " << ptr << ". Code: " << int(query_status) << "  with size " << total_bytes)
+    sizes.push_back(total_bytes);
+  }
+
+  auto& runtime = Runtime::get();
+  runtime.stats_recorder.inc_kernel_register_calls();
+  runtime.switch_to_stream(Stream(stream));
+  for (int i = 0; i < n; ++i) {
+    const auto mode = cucorr::runtime::access_cast_back(modes[i]);
+
+    auto* ptr = kernel_args[i];
+    const auto total_bytes = sizes[i];
+    if (total_bytes == 0){
+      continue;
+    } 
 
     if (mode.state == cucorr::AccessState::kRW || mode.state == cucorr::AccessState::kWritten) {
       LOG_TRACE("[cucorr]    Write to " << ptr << " with size " << total_bytes)
@@ -389,8 +408,7 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cucorr]    "
-            << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -399,12 +417,10 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is blocking")
+    LOG_TRACE("[cucorr]    " << "Memset is blocking")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is not blocking")
+    LOG_TRACE("[cucorr]    " << "Memset is not blocking")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {
@@ -472,7 +488,7 @@ void _cucorr_host_alloc(void** ptr, size_t size, unsigned int) {
   LOG_TRACE("[cucorr]host alloc " << *ptr << " with size " << size)
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_host_alloc_calls();
-  //runtime.happens_after_all_streams();
+  // runtime.happens_after_all_streams();
 
   runtime.insert_allocation(*ptr, AllocationInfo{size, true, false});
 }
