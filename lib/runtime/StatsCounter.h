@@ -101,9 +101,9 @@ class NoneRecorder {
   Statistics stats_r;
   CUCORR_CUDA_EVENT_LIST
 #include "TsanEvents.inc"
-  void TsanMemoryReadCount(unsigned count) {
+  void inc_TsanMemoryReadCount(unsigned count) {
   }
-  void TsanMemoryWriteCount(unsigned count) {
+  void inc_TsanMemoryWriteCount(unsigned count) {
   }
 };
 
