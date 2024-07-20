@@ -100,6 +100,21 @@ class Runtime {
   }
 
   void switch_to_cpu() {
+    //if we where one a default stream we should also post sync
+    //meaning that all work submitted after from the cpu should also be run after the default kernels are done
+    //TODO: double check with blocking
+    auto search_result = streams_.find(Stream());
+    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    if (curr_fiber_ == search_result->second) {
+      LOG_TRACE("[cucorr]    syncing all other blocking GPU streams to run after since its default stream")
+      for (auto& [s, sync_var] : streams_) {
+        if (s.isBlocking) {
+          TsanHappensBefore(sync_var);
+          stats_recorder.inc_TsanHappensBefore();
+        }
+      }
+    }
+
     // without synchronization
     TsanSwitchToFiber(cpu_fiber_, 1);
     stats_recorder.inc_TsanSwitchToFiber();
@@ -122,6 +137,7 @@ class Runtime {
     TsanSwitchToFiber(search_result->second, 0);
     stats_recorder.inc_TsanSwitchToFiber();
     if (search_result->first.isDefaultStream()) {
+      LOG_TRACE("[cucorr]    syncing all other blocking GPU streams since its default stream")
       // then we are on the default stream and as such want to synchronize behind all other streams
       // unless they are nonBlocking
       for (auto& [s, sync_var] : streams_) {
