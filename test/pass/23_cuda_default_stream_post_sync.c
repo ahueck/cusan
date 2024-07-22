@@ -32,10 +32,8 @@ __global__ void write_kernel_delay(int* arr, const int N, int value, const unsig
 
 
 int main(int argc, char* argv[]) {
-  cudaStream_t stream1;
-  cudaStream_t stream2;
-  cudaStreamCreate(&stream1);
-  cudaStreamCreate(&stream2);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
   const int size            = 512;
   const int threadsPerBlock = size;
@@ -50,10 +48,10 @@ int main(int argc, char* argv[]) {
   cudaDeviceSynchronize();
 
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, 0>>>(managed_data, size, 128, 9999999);
-  write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data2, size, 0, 1);
+  write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_data2, size, 0, 1);
 
 #ifdef CUCORR_SYNC
-  cudaStreamSynchronize(stream1);
+  cudaStreamSynchronize(stream);
 #endif
   for (int i = 0; i < size; i++) {
     if (managed_data[i] == 0) {
@@ -62,6 +60,7 @@ int main(int argc, char* argv[]) {
     }
   }
   
+  cudaStreamDestroy(stream);
   cudaFree(managed_data);
   cudaFree(d_data2);
   return 0;

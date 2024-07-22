@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
     }
   }
   
+  cudaStreamDestroy(stream);
   cudaFree(managed_data);
   return 0;
 }
