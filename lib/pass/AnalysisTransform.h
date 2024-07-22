@@ -461,9 +461,22 @@ class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumen
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
-    // auto* cu_stream_void_ptr = irb.CreateLoad(irb.getInt8PtrTy(), args[0], "");
+    auto* flags   = llvm::ConstantInt::get(Type::getInt32Ty(irb.getContext()), 0, false);
     auto* cu_stream_void_ptr_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
-    return {cu_stream_void_ptr_ptr};
+    return {cu_stream_void_ptr_ptr, flags};
+  }
+};
+
+class StreamCreateWithFlagsInstrumenter : public SimpleInstrumenter<StreamCreateWithFlagsInstrumenter> {
+ public:
+  StreamCreateWithFlagsInstrumenter(callback::FunctionDecl* decls) {
+    setup("cudaStreamCreateWithFlags", &decls->cucorr_stream_create.f);
+  }
+  static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
+    assert(args.size() == 2);
+    auto* cu_stream_void_ptr_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* flags = args[1];
+    return {cu_stream_void_ptr_ptr, flags};
   }
 };
 

@@ -337,11 +337,11 @@ void _cucorr_create_event(Event*) {
   runtime.stats_recorder.inc_create_event_calls();
 }
 
-void _cucorr_create_stream(RawStream* stream) {
-  LOG_TRACE("[cucorr]create stream")
+void _cucorr_create_stream(RawStream* stream, cucorr_StreamCreateFlags flags) {
+  LOG_TRACE("[cucorr]create stream with flags: " << flags << " isNonBlocking: " << (bool)(flags & cucorr_StreamFlagsNonBlocking))
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_create_stream_calls();
-  runtime.register_stream(Stream(*stream));
+  runtime.register_stream(Stream(*stream, !(bool)(flags & cucorr_StreamFlagsNonBlocking)));
 }
 
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind kind) {

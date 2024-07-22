@@ -36,6 +36,11 @@ typedef enum cucorr_memcpy_kind_t : unsigned int {
   cucorr_MemcpyDefault        = 4,
 } cucorr_MemcpyKind;
 
+typedef enum cucorr_stream_create_flags_t : unsigned int {
+  cucorr_StreamFlagsDefault     = 0,
+  cucorr_StreamFlagsNonBlocking   = 1,
+} cucorr_StreamCreateFlags;
+
 void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream stream);
 void _cucorr_sync_device();
 void _cucorr_event_record(Event event, RawStream stream);
@@ -43,7 +48,7 @@ void _cucorr_sync_stream(RawStream stream);
 void _cucorr_sync_event(Event event);
 void _cucorr_stream_event(Event event);
 void _cucorr_create_event(RawStream* event);
-void _cucorr_create_stream(RawStream* stream);
+void _cucorr_create_stream(RawStream* stream, cucorr_StreamCreateFlags flags);
 void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_MemcpyKind kind, RawStream stream);
 void _cucorr_memset_async(void* target, int, size_t count, RawStream stream);
 void _cucorr_memcpy(void* target, const void* from, size_t count, cucorr_MemcpyKind);

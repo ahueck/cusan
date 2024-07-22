@@ -82,7 +82,7 @@ struct FunctionDecl {
     ArgTypes arg_types_event_create = {Type::getInt8PtrTy(c)};
     make_function(cucorr_event_create, arg_types_event_create);
 
-    ArgTypes arg_types_stream_create = {Type::getInt8PtrTy(c)};
+    ArgTypes arg_types_stream_create = {Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
     make_function(cucorr_stream_create, arg_types_stream_create);
 
     auto size_t_ty = m.getDataLayout().getIntPtrType(c);
