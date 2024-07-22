@@ -150,10 +150,12 @@ class Runtime {
     curr_fiber_ = search_result->second;
   }
 
-  void happens_after_all_streams() {
-    for (auto [_, fiber] : streams_) {
-      TsanHappensAfter(fiber);
-      stats_recorder.inc_TsanHappensAfter();
+  void happens_after_all_streams(bool onlyBlockingStreams = false) {
+    for (auto [stream, fiber] : streams_) {
+      if(!onlyBlockingStreams || stream.isBlocking){
+        TsanHappensAfter(fiber);
+        stats_recorder.inc_TsanHappensAfter();
+      }
     }
   }
 
@@ -308,11 +310,18 @@ void _cucorr_event_record(Event event, RawStream stream) {
   runtime.record_event(event, Stream(stream));
 }
 
-void _cucorr_sync_stream(RawStream stream) {
-  LOG_TRACE("[cucorr]Sync Stream" << stream)
+void _cucorr_sync_stream(RawStream raw_stream) {
+  LOG_TRACE("[cucorr]Sync Stream" << raw_stream)
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_sync_stream_calls();
-  runtime.happens_after_stream(Stream(stream));
+  const auto stream = Stream(raw_stream);
+
+  if (stream.isDefaultStream()){
+      //if we sync the default stream then we implicitly sync and wait on all blocking streams
+      runtime.happens_after_all_streams(true);
+  }else{
+    runtime.happens_after_stream(stream);
+  }
 }
 
 void _cucorr_sync_event(Event event) {

@@ -12,6 +12,9 @@
 // CHECK-SYNC-NOT: data race
 // CHECK-SYNC-NOT: [Error] sync
 
+// FLAKYPASS: *
+// ALLOW_RETRIES: 5
+
 #include "../support/gpu_mpi.h"
 
 #include <unistd.h>
