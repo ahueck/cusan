@@ -33,7 +33,11 @@ __global__ void write_kernel_delay(int* arr, const int N, int value, const unsig
 
 int main(int argc, char* argv[]) {
   cudaStream_t stream;
+#ifdef CUCORR_SYNC
+  cudaStreamCreate(&stream);
+#else
   cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+#endif
 
   const int size            = 512;
   const int threadsPerBlock = size;
@@ -46,9 +50,7 @@ int main(int argc, char* argv[]) {
 
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(managed_data, size, 128, 9999999);
   cudaStreamSynchronize(0);
-#ifdef CUCORR_SYNC
-  cudaStreamSynchronize(stream);
-#endif
+
   for (int i = 0; i < size; i++) {
     if (managed_data[i] == 0) {
       printf("[Error] sync %i %i\n", managed_data[i], i);
