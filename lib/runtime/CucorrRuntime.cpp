@@ -100,9 +100,9 @@ class Runtime {
   }
 
   void switch_to_cpu() {
-    //if we where one a default stream we should also post sync
-    //meaning that all work submitted after from the cpu should also be run after the default kernels are done
-    //TODO: double check with blocking
+    // if we where one a default stream we should also post sync
+    // meaning that all work submitted after from the cpu should also be run after the default kernels are done
+    // TODO: double check with blocking
     auto search_result = streams_.find(Stream());
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     if (curr_fiber_ == search_result->second) {
@@ -152,7 +152,7 @@ class Runtime {
 
   void happens_after_all_streams(bool onlyBlockingStreams = false) {
     for (auto [stream, fiber] : streams_) {
-      if(!onlyBlockingStreams || stream.isBlocking){
+      if (!onlyBlockingStreams || stream.isBlocking) {
         TsanHappensAfter(fiber);
         stats_recorder.inc_TsanHappensAfter();
       }
@@ -257,15 +257,15 @@ void _cucorr_kernel_register(void** kernel_args, short* modes, int n, RawStream 
     auto* ptr         = kernel_args[i];
     auto query_status = typeart_get_type(ptr, &alloc_id, &alloc_size);
     if (query_status != TYPEART_OK) {
-      LOG_TRACE("Querying allocation length failed on " << ptr << ". Code: " << int(query_status))
+      LOG_TRACE(" [cucorr]    Querying allocation length failed on " << ptr << ". Code: " << int(query_status))
       sizes.push_back(0);
       continue;
     }
 
     const auto bytes_for_type = typeart_get_type_size(alloc_id);
     const auto total_bytes    = bytes_for_type * alloc_size;
-    LOG_TRACE("Querying allocation length of " << ptr << ". Code: " << int(query_status) << "  with size "
-                                               << total_bytes)
+    LOG_TRACE(" [cucorr]    Querying allocation length of " << ptr << ". Code: " << int(query_status) << "  with size "
+                                                            << total_bytes)
     sizes.push_back(total_bytes);
   }
 
@@ -315,11 +315,11 @@ void _cucorr_sync_stream(RawStream raw_stream) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_sync_stream_calls();
   const auto stream = Stream(raw_stream);
-
-  if (stream.isDefaultStream()){
-      //if we sync the default stream then we implicitly sync and wait on all blocking streams
-      runtime.happens_after_all_streams(true);
-  }else{
+  if (stream.isDefaultStream()) {
+    // if we sync the default stream then we implicitly sync and wait on all blocking streams
+    LOG_TRACE("[cucorr] Since default stream it happens after all")
+    runtime.happens_after_all_streams(true);
+  } else {
     runtime.happens_after_stream(stream);
   }
 }
@@ -338,7 +338,8 @@ void _cucorr_create_event(Event*) {
 }
 
 void _cucorr_create_stream(RawStream* stream, cucorr_StreamCreateFlags flags) {
-  LOG_TRACE("[cucorr]create stream with flags: " << flags << " isNonBlocking: " << (bool)(flags & cucorr_StreamFlagsNonBlocking))
+  LOG_TRACE("[cucorr]create stream with flags: " << flags
+                                                 << " isNonBlocking: " << (bool)(flags & cucorr_StreamFlagsNonBlocking))
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_create_stream_calls();
   runtime.register_stream(Stream(*stream, !(bool)(flags & cucorr_StreamFlagsNonBlocking)));
@@ -433,8 +434,7 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cucorr]    "
-            << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cucorr]    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -443,12 +443,10 @@ void _cucorr_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUCORR_SYNC_DETAIL_LEVEL == 0) {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is blocking")
+    LOG_TRACE("[cucorr]    " << "Memset is blocking")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cucorr]    "
-              << "Memset is not blocking")
+    LOG_TRACE("[cucorr]    " << "Memset is not blocking")
     if (!alloc_info) {
       LOG_DEBUG("[cucorr]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {
