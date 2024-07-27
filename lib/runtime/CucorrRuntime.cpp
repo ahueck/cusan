@@ -95,20 +95,23 @@ class Runtime {
   void operator=(const Runtime&) = delete;
 
   void happens_before() {
+    LOG_TRACE("[cucorr]    HappensBefore of curr fiber")
     TsanHappensBefore(curr_fiber_);
     stats_recorder.inc_TsanHappensBefore();
   }
 
   void switch_to_cpu() {
+    LOG_TRACE("[cucorr]    Switch to cpu")
     // if we where one a default stream we should also post sync
     // meaning that all work submitted after from the cpu should also be run after the default kernels are done
     // TODO: double check with blocking
     auto search_result = streams_.find(Stream());
     assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
     if (curr_fiber_ == search_result->second) {
-      LOG_TRACE("[cucorr]    syncing all other blocking GPU streams to run after since its default stream")
+      LOG_TRACE("[cucorr]        syncing all other blocking GPU streams to run after since its default stream")
       for (auto& [s, sync_var] : streams_) {
-        if (s.isBlocking) {
+        if (s.isBlocking && !s.isDefaultStream()) {
+          LOG_TRACE("[cucorr]        happens before " << s.handle)
           TsanHappensBefore(sync_var);
           stats_recorder.inc_TsanHappensBefore();
         }
@@ -137,11 +140,12 @@ class Runtime {
     TsanSwitchToFiber(search_result->second, 0);
     stats_recorder.inc_TsanSwitchToFiber();
     if (search_result->first.isDefaultStream()) {
-      LOG_TRACE("[cucorr]    syncing all other blocking GPU streams since its default stream")
+      LOG_TRACE("[cucorr]        syncing all other blocking GPU streams since its default stream")
       // then we are on the default stream and as such want to synchronize behind all other streams
       // unless they are nonBlocking
       for (auto& [s, sync_var] : streams_) {
-        if (s.isBlocking) {
+        if (s.isBlocking && !s.isDefaultStream()) {
+          LOG_TRACE("[cucorr]        happens after " << s.handle)
           TsanHappensAfter(sync_var);
           stats_recorder.inc_TsanHappensAfter();
         }
@@ -151,8 +155,10 @@ class Runtime {
   }
 
   void happens_after_all_streams(bool onlyBlockingStreams = false) {
+    LOG_TRACE("[cucorr]    happens_after_all_streams but only blocking ones: " << onlyBlockingStreams)
     for (auto [stream, fiber] : streams_) {
       if (!onlyBlockingStreams || stream.isBlocking) {
+         LOG_TRACE("[cucorr]        happens after " << stream.handle)
         TsanHappensAfter(fiber);
         stats_recorder.inc_TsanHappensAfter();
       }
