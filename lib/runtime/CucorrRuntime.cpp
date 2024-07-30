@@ -471,10 +471,14 @@ void _cucorr_memcpy_async(void* target, const void* from, size_t count, cucorr_M
     // 2. For transfers from any host memory to any host memory, the function is fully synchronous with respect to the
     // host.
     LOG_TRACE("[cucorr]   Blocking")
+    runtime.switch_to_stream(Stream(stream));
     TsanMemoryReadPC(from, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryRead();
     TsanMemoryWritePC(target, count, __builtin_return_address(0));
     runtime.stats_recorder.inc_TsanMemoryWrite();
+    runtime.happens_before();
+    runtime.switch_to_cpu();
+    runtime.happens_after_stream(Stream(stream));
   } else {
     // 1. For transfers between device memory and pageable host memory, the function *might* be synchronous with respect
     // to host.
