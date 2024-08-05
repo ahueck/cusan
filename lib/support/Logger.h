@@ -6,6 +6,7 @@
 #define LIB_CUSAN_LOGGER_H_
 
 #include "llvm/Support/raw_ostream.h"
+
 #include <mutex>
 
 #ifndef CUSAN_LOG_LEVEL

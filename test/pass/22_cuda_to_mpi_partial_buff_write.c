@@ -6,8 +6,6 @@
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
-
-
 #include "../support/gpu_mpi.h"
 
 __global__ void kernel(int* arr, const int N) {
@@ -33,8 +31,8 @@ int main(int argc, char* argv[]) {
   const int size            = 512;
   const int threadsPerBlock = size;
   const int blocksPerGrid   = (size + threadsPerBlock - 1) / threadsPerBlock;
-  static_assert(size%2 == 0, "Needs to be divisble by 2");
-  const int half_size = size/2;
+  static_assert(size % 2 == 0, "Needs to be divisble by 2");
+  const int half_size = size / 2;
 
   MPI_Init(&argc, &argv);
   int world_size, world_rank;

@@ -30,7 +30,6 @@ __global__ void write_kernel_delay(int* arr, const int N, int value, const unsig
   }
 }
 
-
 int main(int argc, char* argv[]) {
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -59,7 +58,7 @@ int main(int argc, char* argv[]) {
       break;
     }
   }
-  
+
   cudaStreamDestroy(stream);
   cudaFree(managed_data);
   cudaFree(d_data2);

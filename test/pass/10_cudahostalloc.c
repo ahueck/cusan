@@ -25,11 +25,11 @@
 #include <stdio.h>
 
 int main(int argc, char* argv[]) {
-  const int size            = 512;
+  const int size = 512;
   int* h_data1;
-  cudaMallocHost((void**)&h_data1, size*sizeof(int));
+  cudaMallocHost((void**)&h_data1, size * sizeof(int));
   int* h_data2;
-  cudaHostAlloc(&h_data2, size*sizeof(int), cudaHostAllocDefault);
+  cudaHostAlloc(&h_data2, size * sizeof(int), cudaHostAllocDefault);
   cudaFreeHost(h_data1);
   cudaFreeHost(h_data2);
   return 0;

@@ -42,17 +42,18 @@ int main() {
 
   cudaMallocManaged(&managed_data, size * sizeof(int));
   cudaMemset(managed_data, 0, size * sizeof(int));
-  
+
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(managed_data, size, 1316134912);
 
 #ifdef CUSAN_SYNC
-  while(cudaStreamQuery(stream1) != cudaSuccess){}
+  while (cudaStreamQuery(stream1) != cudaSuccess) {
+  }
 #endif
 
   for (int i = 0; i < size; i++) {
     if (managed_data[i] == 0) {
       printf("[Error] sync %i\n", managed_data[i]);
-      //break;
+      // break;
     }
   }
 

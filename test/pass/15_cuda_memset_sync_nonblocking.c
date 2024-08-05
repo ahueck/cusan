@@ -48,7 +48,7 @@ int main() {
   cudaMallocManaged(&fake_data, 4);
   cudaMemset(managed_data, 0, size * sizeof(int));
   cudaMemset(managed_data2, 0, size * sizeof(int));
-  
+
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(managed_data, size, 1316134912);
   cudaMemset(fake_data, 0, 4);
 #ifdef CUSAN_SYNC
@@ -65,6 +65,6 @@ int main() {
 
   cudaFree(d_data2);
   cudaFree(managed_data);
-  
+
   return 0;
 }

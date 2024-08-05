@@ -19,7 +19,8 @@ namespace cusan {
 
 namespace device {
 
-// stolen and modified from clang19 https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
+// Taken from (and extended to interprocedural analysis) from clang19
+// https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
 static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value) {
   using namespace llvm;
   SmallVector<Use*, 32> worklist;
