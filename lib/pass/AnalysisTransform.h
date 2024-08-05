@@ -1,4 +1,12 @@
-#pragma once
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef CUSAN_ANALYSISTRANSFORM_H
+#define CUSAN_ANALYSISTRANSFORM_H
+
 #include "FunctionDecl.h"
 #include "analysis/KernelAnalysis.h"
 
@@ -69,8 +77,9 @@ struct CudaKernelInvokeCollector {
       // and only if then we load it. I think this should handle all cases since the only case it would fail
       // is if we do strct* and send that (byval)pointer but that shouldnt be a thing?
       bool real_ptr =
-          res.is_pointer && (dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType()) != nullptr);
-      
+          res.is_pointer &&
+          (dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType()) != nullptr);
+
       // not fake pointer from clang so load it before getting subargs
       for (auto& sub_arg : res.subargs) {
         if (real_ptr) {
@@ -121,7 +130,7 @@ struct KernelInvokeTransformer {
         llvm::count_if(data.args, [&](const auto& elem) {
           return llvm::count_if(elem.subargs, [&](const auto& sub_elem) { return sub_elem.is_pointer; }) > 0;
         }) > 0;
-      
+
     uint32_t n_subargs = 0;
     for (const auto& arg : data.args) {
       n_subargs += arg.subargs.size();
@@ -224,14 +233,10 @@ class CallInstrumenter {
 };
 
 template <typename T, typename = int>
-struct WantsReturnValue : std::false_type {
-};
+struct WantsReturnValue : std::false_type {};
 
 template <typename T>
-struct WantsReturnValue<T, decltype(&T::map_return_value, 0)> : std::true_type {
-};
-
-
+struct WantsReturnValue<T, decltype(&T::map_return_value, 0)> : std::true_type {};
 
 template <class T>
 class SimpleInstrumenter {
@@ -280,12 +285,11 @@ class SimpleInstrumenter {
           v.push_back(arg.get());
         }
         auto args = T::map_arguments(irb, v);
-        if constexpr (WantsReturnValue<T>::value){
+        if constexpr (WantsReturnValue<T>::value) {
           assert(loc == InsertLocation::kAfter && "Can only capture return value if insertion location is after");
           args.append(T::map_return_value(irb, cb));
         }
         irb.CreateCall(*callee_, args);
-
       }
     }
     return !target_callsites_.empty();
@@ -461,7 +465,7 @@ class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumen
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
-    auto* flags   = llvm::ConstantInt::get(Type::getInt32Ty(irb.getContext()), 0, false);
+    auto* flags                  = llvm::ConstantInt::get(Type::getInt32Ty(irb.getContext()), 0, false);
     auto* cu_stream_void_ptr_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     return {cu_stream_void_ptr_ptr, flags};
   }
@@ -475,7 +479,7 @@ class StreamCreateWithFlagsInstrumenter : public SimpleInstrumenter<StreamCreate
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 2);
     auto* cu_stream_void_ptr_ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
-    auto* flags = args[1];
+    auto* flags                  = args[1];
     return {cu_stream_void_ptr_ptr, flags};
   }
 };
@@ -550,7 +554,6 @@ class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
   }
 };
 
-
 class CudaMalloc : public SimpleInstrumenter<CudaMalloc> {
  public:
   CudaMalloc(callback::FunctionDecl* decls) {
@@ -559,12 +562,11 @@ class CudaMalloc : public SimpleInstrumenter<CudaMalloc> {
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr, size_t size)
     assert(args.size() == 2);
-    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
-    auto* size  = args[1];
+    auto* ptr  = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* size = args[1];
     return {ptr, size};
   }
 };
-
 
 class CudaFree : public SimpleInstrumenter<CudaFree> {
  public:
@@ -574,12 +576,10 @@ class CudaFree : public SimpleInstrumenter<CudaFree> {
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
     assert(args.size() == 1);
-    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     return {ptr};
   }
 };
-
-
 
 class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
  public:
@@ -589,7 +589,7 @@ class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* stream)
     assert(args.size() == 1);
-    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     return {ptr};
   }
   static llvm::SmallVector<Value*, 1> map_return_value(IRBuilder<>& irb, Value* result) {
@@ -606,7 +606,7 @@ class CudaEventQuery : public SimpleInstrumenter<CudaEventQuery> {
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* event)
     assert(args.size() == 1);
-    auto* ptr   = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
+    auto* ptr = irb.CreateBitOrPointerCast(args[0], irb.getInt8PtrTy());
     return {ptr};
   }
   static llvm::SmallVector<Value*, 1> map_return_value(IRBuilder<>& irb, Value* result) {
@@ -617,3 +617,5 @@ class CudaEventQuery : public SimpleInstrumenter<CudaEventQuery> {
 
 }  // namespace transform
 }  // namespace cusan
+
+#endif

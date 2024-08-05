@@ -1,13 +1,12 @@
 // cusan library
-// Copyright (c) 2023 cusan authors
+// Copyright (c) 2023-2024 cusan authors
 // Distributed under the BSD 3-Clause License license.
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "CusanPass.h"
-
 #include "AnalysisTransform.h"
 #include "CommandLine.h"
+#include "CusanPass.h"
 #include "FunctionDecl.h"
 #include "analysis/KernelAnalysis.h"
 #include "support/CudaUtil.h"

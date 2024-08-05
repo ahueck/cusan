@@ -1,3 +1,9 @@
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "StatsCounter.h"
 #include "TSan_External.h"
 #include "support/Table.h"
@@ -31,10 +37,10 @@ using namespace cusan::runtime::softcounter;
   cusan_stat_handle(Barrier);
 
 #define cusan_stat_handle(name) \
-  inline void inc_##name() {     \
-  }                              \
-  inline Counter get_##name() {  \
-    return 0;                    \
+  inline void inc_##name() {    \
+  }                             \
+  inline Counter get_##name() { \
+    return 0;                   \
   }
 class MPINoneRecorder final {
  public:
@@ -44,12 +50,12 @@ class MPINoneRecorder final {
 
 #undef cusan_stat_handle
 #define cusan_stat_handle(name) \
-  AtomicCounter name = 0;        \
-  inline void inc_##name() {     \
-    this->name++;                \
-  }                              \
-  inline Counter get_##name() {  \
-    return this->name;           \
+  AtomicCounter name = 0;       \
+  inline void inc_##name() {    \
+    this->name++;               \
+  }                             \
+  inline Counter get_##name() { \
+    return this->name;          \
   }
 
 struct MPIAccessRecorder final {

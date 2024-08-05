@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 08.01.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef CUSAN_KERNELMODEL_H
 #define CUSAN_KERNELMODEL_H
@@ -19,11 +21,11 @@ namespace cusan {
 
 enum class AccessState : short { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
 
-constexpr AccessState mergeAccessState(AccessState a, AccessState b){
-  if(a == AccessState::kNone){
+constexpr AccessState mergeAccessState(AccessState a, AccessState b) {
+  if (a == AccessState::kNone) {
     return b;
   }
-  if(b == AccessState::kNone){
+  if (b == AccessState::kNone) {
     return a;
   }
   return (AccessState)((short)a | (short)b);
@@ -57,8 +59,6 @@ struct FunctionArg {
   bool is_pointer{false};
   llvm::SmallVector<FunctionSubArg> subargs;
 };
-
-
 
 struct KernelModel {
   llvm::Optional<const llvm::Function*> kernel{nullptr};

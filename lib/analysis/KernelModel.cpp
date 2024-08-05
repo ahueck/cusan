@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 08.01.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "KernelModel.h"
 
@@ -32,8 +34,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const AccessState& arg) {
 }
 
 bool ModelHandler::insert(const cusan::KernelModel& model) {
-  auto result =
-      llvm::find_if(models, [&model](const auto& model_) { return model.kernel_name == model_.kernel_name; });
+  auto result = llvm::find_if(models, [&model](const auto& model_) { return model.kernel_name == model_.kernel_name; });
 
   if (result == std::end(models)) {
     models.emplace_back(model);
@@ -51,7 +52,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionSubArg& arg) 
   }
   if (!arg.indices.empty()) {
     os << ", indicies:[";
-    for(auto index: arg.indices){
+    for (auto index : arg.indices) {
       os << index << ", ";
     }
     os << "]";
@@ -69,16 +70,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionArg& arg) {
     os << "<null>";
   }
   os << ", subArgs: [";
-  for(const auto& arg: arg.subargs){
+  for (const auto& arg : arg.subargs) {
     os << arg;
   }
   os << "]";
   os << ", ptr: " << static_cast<int>(arg.is_pointer) << ", pos: " << arg.arg_pos << "]";
   return os;
 }
-
-
-
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ModelHandler& arg) {
   const auto& models = arg.models;

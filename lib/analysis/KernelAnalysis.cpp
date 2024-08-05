@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 05.07.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "KernelAnalysis.h"
 
@@ -183,11 +185,11 @@ struct ChildInfo {
   llvm::SmallVector<int32_t> indicies;
 };
 
-void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {}, llvm::SmallSet<llvm::Function*, 8> visited_funcs = {}) {
+void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {},
+                      llvm::SmallSet<llvm::Function*, 8> visited_funcs = {}) {
   using namespace llvm;
   llvm::SmallVector<ChildInfo, 32> work_list;
   work_list.push_back({init_val, std::move(initial_index_stack)});
-  
 
   while (!work_list.empty()) {
     // not nice making copies of the stack all the time idk
@@ -220,10 +222,11 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector
               // arg.subargs.push_back(sub_arg);
               //  this argument should have already been looked at in the current function so if we
               //  check it again we should merge the results to get the correct accessstate
-              auto* res = llvm::find_if(arg.subargs, [=](auto a) { return a.value.getValueOr(nullptr) == ipo_argument; });
+              auto* res =
+                  llvm::find_if(arg.subargs, [=](auto a) { return a.value.getValueOr(nullptr) == ipo_argument; });
               if (res == arg.subargs.end()) {
                 res->state = mergeAccessState(res->state, state(access_res));
-              }else{
+              } else {
                 assert(false);
               }
             }

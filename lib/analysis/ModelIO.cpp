@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 19.12.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "KernelModel.h"
 
@@ -74,7 +76,6 @@ struct llvm::yaml::MappingTraits<cusan::FunctionSubArg> {
 };
 
 LLVM_YAML_IS_SEQUENCE_VECTOR(cusan::FunctionSubArg)
-
 
 template <>
 struct llvm::yaml::MappingTraits<cusan::KernelModel> {

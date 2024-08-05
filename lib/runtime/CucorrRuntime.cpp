@@ -1,5 +1,5 @@
 // cusan library
-// Copyright (c) 2023 cusan authors
+// Copyright (c) 2023-2024 cusan authors
 // Distributed under the BSD 3-Clause License license.
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
@@ -158,7 +158,7 @@ class Runtime {
     LOG_TRACE("[cusan]    happens_after_all_streams but only blocking ones: " << onlyBlockingStreams)
     for (auto [stream, fiber] : streams_) {
       if (!onlyBlockingStreams || stream.isBlocking) {
-         LOG_TRACE("[cusan]        happens after " << stream.handle)
+        LOG_TRACE("[cusan]        happens after " << stream.handle)
         TsanHappensAfter(fiber);
         stats_recorder.inc_TsanHappensAfter();
       }
@@ -271,7 +271,7 @@ void _cusan_kernel_register(void** kernel_args, short* modes, int n, RawStream s
     const auto bytes_for_type = typeart_get_type_size(alloc_id);
     const auto total_bytes    = bytes_for_type * alloc_size;
     LOG_TRACE(" [cusan]    Querying allocation length of " << ptr << ". Code: " << int(query_status) << "  with size "
-                                                            << total_bytes)
+                                                           << total_bytes)
     sizes.push_back(total_bytes);
   }
 
@@ -345,7 +345,7 @@ void _cusan_create_event(Event*) {
 
 void _cusan_create_stream(RawStream* stream, cusan_StreamCreateFlags flags) {
   LOG_TRACE("[cusan]create stream with flags: " << flags
-                                                 << " isNonBlocking: " << (bool)(flags & cusan_StreamFlagsNonBlocking))
+                                                << " isNonBlocking: " << (bool)(flags & cusan_StreamFlagsNonBlocking))
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_create_stream_calls();
   runtime.register_stream(Stream(*stream, !(bool)(flags & cusan_StreamFlagsNonBlocking)));
@@ -440,7 +440,8 @@ void _cusan_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cusan]    " << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cusan]    "
+            << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -449,10 +450,12 @@ void _cusan_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldnt find alloc info we just assume the worst and dont sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUSAN_SYNC_DETAIL_LEVEL == 0) {
-    LOG_TRACE("[cusan]    " << "Memset is blocking")
+    LOG_TRACE("[cusan]    "
+              << "Memset is blocking")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cusan]    " << "Memset is not blocking")
+    LOG_TRACE("[cusan]    "
+              << "Memset is not blocking")
     if (!alloc_info) {
       LOG_DEBUG("[cusan]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {

@@ -1,4 +1,12 @@
-#pragma once
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef CUSAN_FUNCTIONDECL_H
+#define CUSAN_FUNCTIONDECL_H
+
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Module.h>
 
@@ -65,7 +73,7 @@ struct FunctionDecl {
     using ArgTypes = decltype(CusanFunction::arg_types);
     // TODO address space?
     ArgTypes arg_types_cusan_register = {PointerType::get(Type::getInt8PtrTy(c), 0), Type::getInt16PtrTy(c),
-                                          Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
+                                         Type::getInt32Ty(c), Type::getInt8PtrTy(c)};
     make_function(cusan_register_access, arg_types_cusan_register);
 
     ArgTypes arg_types_sync_device = {};
@@ -131,16 +139,17 @@ struct FunctionDecl {
     ArgTypes arg_device_free = {Type::getInt8PtrTy(c)};
     make_function(cusan_device_free, arg_device_free);
 
-    //RawStream stream, u32 return_errType
+    // RawStream stream, u32 return_errType
     ArgTypes arg_stream_query = {Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
     make_function(cusan_stream_query, arg_stream_query);
 
-    //Event stream, u32 return_errType
+    // Event stream, u32 return_errType
     ArgTypes arg_event_query = {Type::getInt8PtrTy(c), Type::getInt32Ty(c)};
     make_function(cusan_event_query, arg_event_query);
-    
   }
 };
 
 }  // namespace callback
 }  // namespace cusan
+
+#endif

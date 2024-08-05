@@ -1,5 +1,5 @@
 // cusan library
-// Copyright (c) 2023 cusan authors
+// Copyright (c) 2023-2024 cusan authors
 // Distributed under the BSD 3-Clause License license.
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
@@ -38,7 +38,7 @@ typedef enum cusan_memcpy_kind_t : unsigned int {
 
 typedef enum cusan_stream_create_flags_t : unsigned int {
   cusan_StreamFlagsDefault     = 0,
-  cusan_StreamFlagsNonBlocking   = 1,
+  cusan_StreamFlagsNonBlocking = 1,
 } cusan_StreamCreateFlags;
 
 void _cusan_kernel_register(void** kernel_args, short* modes, int n, RawStream stream);
