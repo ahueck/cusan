@@ -2,13 +2,13 @@
 // Created by ahueck on 08.01.23.
 //
 
-#ifndef CUCORR_CUDAUTIL_H
-#define CUCORR_CUDAUTIL_H
+#ifndef CUSAN_CUDAUTIL_H
+#define CUSAN_CUDAUTIL_H
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 
-namespace cucorr::cuda {
+namespace cusan::cuda {
 
 // bool AA::isGPU(const Module &M) {
 //   Triple T(M.getTargetTriple());
@@ -33,6 +33,6 @@ inline bool is_kernel(const llvm::Function* function) {
   return any;
 }
 
-}  // namespace cucorr::cuda
+}  // namespace cusan::cuda
 
-#endif  // CUCORR_CUDAUTIL_H
+#endif  // CUSAN_CUDAUTIL_H

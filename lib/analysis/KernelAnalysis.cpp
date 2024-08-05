@@ -13,7 +13,7 @@
 #include <llvm/Transforms/IPO/Attributor.h>
 #include <utility>
 
-namespace cucorr {
+namespace cusan {
 
 namespace device {
 
@@ -362,4 +362,4 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* func, const Mod
 
 }  // namespace host
 
-}  // namespace cucorr
+}  // namespace cusan

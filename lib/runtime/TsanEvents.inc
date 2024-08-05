@@ -1,10 +1,10 @@
-#ifndef cucorr_stat_handle
-#define cucorr_stat_handle(event)
+#ifndef cusan_stat_handle
+#define cusan_stat_handle(event)
 #endif
 
-cucorr_stat_handle(TsanMemoryRead);
-cucorr_stat_handle(TsanMemoryWrite);
-cucorr_stat_handle(TsanSwitchToFiber);
-cucorr_stat_handle(TsanHappensBefore);
-cucorr_stat_handle(TsanHappensAfter);
-cucorr_stat_handle(TsanCreateFiber);
+cusan_stat_handle(TsanMemoryRead);
+cusan_stat_handle(TsanMemoryWrite);
+cusan_stat_handle(TsanSwitchToFiber);
+cusan_stat_handle(TsanHappensBefore);
+cusan_stat_handle(TsanHappensAfter);
+cusan_stat_handle(TsanCreateFiber);

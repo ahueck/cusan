@@ -1,11 +1,11 @@
 // clang-format off
-// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s -DFILENAME=%s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck %s -DFILENAME=%s
 
-// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUSAN_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t-sync.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-SYNC
 
-// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
+// RUN: %apply %s --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 
 // CHECK-DAG: data race
 // CHECK-DAG: [Error] sync
@@ -14,11 +14,11 @@
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream 
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_create_stream 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate 
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_create_stream
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpyAsync(i8* {{.*}}[[mcpyasy_target:%[0-9a-z]+]], i8* {{.*}}[[mcpyasy_from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy_async(i8* {{.*}}[[mcpyasy_target]], i8* {{.*}}[[mcpyasy_from]], 
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_memcpy_async(i8* {{.*}}[[mcpyasy_target]], i8* {{.*}}[[mcpyasy_from]], 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
 // CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
   cudaMalloc(&d_data, size * sizeof(int));
 
   kernel<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(d_data, size);
-#ifdef CUCORR_SYNC
+#ifdef CUSAN_SYNC
   cudaStreamSynchronize(stream1);
 #endif
   cudaMemcpyAsync(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost, stream2);

@@ -2,8 +2,8 @@
 // Created by ahueck on 08.01.23.
 //
 
-#ifndef CUCORR_KERNELMODEL_H
-#define CUCORR_KERNELMODEL_H
+#ifndef CUSAN_KERNELMODEL_H
+#define CUSAN_KERNELMODEL_H
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
@@ -15,7 +15,7 @@
 #include <optional>
 #include <string_view>
 
-namespace cucorr {
+namespace cusan {
 
 enum class AccessState : short { kWritten = 1, kRead = 1 << 1, kNone = 1 << 2, kRW = kRead | kWritten };
 
@@ -81,6 +81,6 @@ namespace io {
 [[nodiscard]] llvm::ErrorOr<bool> load(ModelHandler& kernel_db, std::string_view file);
 }  // namespace io
 
-}  // namespace cucorr
+}  // namespace cusan
 
-#endif  // CUCORR_KERNELMODEL_H
+#endif  // CUSAN_KERNELMODEL_H

@@ -9,11 +9,11 @@
 #include <utility>
 
 using namespace llvm;
-namespace cucorr {
+namespace cusan {
 
 namespace analysis {
 
-using KernelArgInfo = cucorr::FunctionArg;
+using KernelArgInfo = cusan::FunctionArg;
 
 struct CudaKernelInvokeCollector {
   KernelModel& model;
@@ -131,7 +131,7 @@ struct KernelInvokeTransformer {
       return false;
     }
 
-    auto target_callback = decls_->cucorr_register_access;
+    auto target_callback = decls_->cusan_register_access;
 
     auto* i16_ty      = Type::getInt16Ty(irb.getContext());
     auto* i32_ty      = Type::getInt32Ty(irb.getContext());
@@ -178,8 +178,8 @@ struct KernelInvokeTransformer {
       }
     }
 
-    Value* args_cucorr_register[] = {arg_value_array, arg_access_array, arg_size, cu_stream_void_ptr};
-    irb.CreateCall(target_callback.f, args_cucorr_register);
+    Value* args_cusan_register[] = {arg_value_array, arg_access_array, arg_size, cu_stream_void_ptr};
+    irb.CreateCall(target_callback.f, args_cusan_register);
     return true;
   }
 };
@@ -295,7 +295,7 @@ class SimpleInstrumenter {
 class DeviceSyncInstrumenter : public SimpleInstrumenter<DeviceSyncInstrumenter> {
  public:
   DeviceSyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaDeviceSynchronize", &decls->cucorr_sync_device.f);
+    setup("cudaDeviceSynchronize", &decls->cusan_sync_device.f);
   }
   static llvm::SmallVector<Value*, 4> map_arguments(IRBuilder<>&, llvm::ArrayRef<Value*>) {
     return {};
@@ -304,7 +304,7 @@ class DeviceSyncInstrumenter : public SimpleInstrumenter<DeviceSyncInstrumenter>
 class StreamSyncInstrumenter : public SimpleInstrumenter<StreamSyncInstrumenter> {
  public:
   StreamSyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaStreamSynchronize", &decls->cucorr_sync_stream.f);
+    setup("cudaStreamSynchronize", &decls->cusan_sync_stream.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
@@ -315,7 +315,7 @@ class StreamSyncInstrumenter : public SimpleInstrumenter<StreamSyncInstrumenter>
 class EventSyncInstrumenter : public SimpleInstrumenter<EventSyncInstrumenter> {
  public:
   EventSyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaEventSynchronize", &decls->cucorr_sync_event.f);
+    setup("cudaEventSynchronize", &decls->cusan_sync_event.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
@@ -326,7 +326,7 @@ class EventSyncInstrumenter : public SimpleInstrumenter<EventSyncInstrumenter> {
 class EventRecordInstrumenter : public SimpleInstrumenter<EventRecordInstrumenter> {
  public:
   EventRecordInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaEventRecord", &decls->cucorr_event_record.f);
+    setup("cudaEventRecord", &decls->cusan_event_record.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 2);
@@ -338,7 +338,7 @@ class EventRecordInstrumenter : public SimpleInstrumenter<EventRecordInstrumente
 class EventRecordFlagsInstrumenter : public SimpleInstrumenter<EventRecordFlagsInstrumenter> {
  public:
   EventRecordFlagsInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaEventRecordWithFlags", &decls->cucorr_event_record.f);
+    setup("cudaEventRecordWithFlags", &decls->cusan_event_record.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 3);
@@ -351,7 +351,7 @@ class EventRecordFlagsInstrumenter : public SimpleInstrumenter<EventRecordFlagsI
 class MemcpyAsyncInstrumenter : public SimpleInstrumenter<MemcpyAsyncInstrumenter> {
  public:
   MemcpyAsyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaMemcpyAsync", &decls->cucorr_memcpy_async.f);
+    setup("cudaMemcpyAsync", &decls->cusan_memcpy_async.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     // void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream = 0
@@ -368,7 +368,7 @@ class MemcpyAsyncInstrumenter : public SimpleInstrumenter<MemcpyAsyncInstrumente
 class CudaMemcpyInstrumenter : public SimpleInstrumenter<CudaMemcpyInstrumenter> {
  public:
   CudaMemcpyInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaMemcpy", &decls->cucorr_memcpy.f);
+    setup("cudaMemcpy", &decls->cusan_memcpy.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     // void* dst, const void* src, size_t count, cudaMemcpyKind kind
@@ -384,7 +384,7 @@ class CudaMemcpyInstrumenter : public SimpleInstrumenter<CudaMemcpyInstrumenter>
 class MemsetAsyncInstrumenter : public SimpleInstrumenter<MemsetAsyncInstrumenter> {
  public:
   MemsetAsyncInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaMemsetAsync", &decls->cucorr_memset_async.f);
+    setup("cudaMemsetAsync", &decls->cusan_memset_async.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* devPtr, int  value, size_t count, cudaStream_t stream = 0 )
@@ -399,7 +399,7 @@ class MemsetAsyncInstrumenter : public SimpleInstrumenter<MemsetAsyncInstrumente
 class CudaMemsetInstrumenter : public SimpleInstrumenter<CudaMemsetInstrumenter> {
  public:
   CudaMemsetInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaMemset", &decls->cucorr_memset.f);
+    setup("cudaMemset", &decls->cusan_memset.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* devPtr, int  value, size_t count,)
@@ -414,7 +414,7 @@ class CudaMemsetInstrumenter : public SimpleInstrumenter<CudaMemsetInstrumenter>
 class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
  public:
   CudaHostAlloc(callback::FunctionDecl* decls) {
-    setup("cudaHostAlloc", &decls->cucorr_host_alloc.f);
+    setup("cudaHostAlloc", &decls->cusan_host_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void** ptr, size_t size, unsigned int flags )
@@ -429,7 +429,7 @@ class CudaHostAlloc : public SimpleInstrumenter<CudaHostAlloc> {
 class CudaMallocHost : public SimpleInstrumenter<CudaMallocHost> {
  public:
   CudaMallocHost(callback::FunctionDecl* decls) {
-    setup("cudaMallocHost", &decls->cucorr_host_alloc.f);
+    setup("cudaMallocHost", &decls->cusan_host_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void** ptr, size_t size)
@@ -444,7 +444,7 @@ class CudaMallocHost : public SimpleInstrumenter<CudaMallocHost> {
 class EventCreateInstrumenter : public SimpleInstrumenter<EventCreateInstrumenter> {
  public:
   EventCreateInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaEventCreate", &decls->cucorr_event_create.f);
+    setup("cudaEventCreate", &decls->cusan_event_create.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
@@ -457,7 +457,7 @@ class EventCreateInstrumenter : public SimpleInstrumenter<EventCreateInstrumente
 class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumenter> {
  public:
   StreamCreateInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaStreamCreate", &decls->cucorr_stream_create.f);
+    setup("cudaStreamCreate", &decls->cusan_stream_create.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 1);
@@ -470,7 +470,7 @@ class StreamCreateInstrumenter : public SimpleInstrumenter<StreamCreateInstrumen
 class StreamCreateWithFlagsInstrumenter : public SimpleInstrumenter<StreamCreateWithFlagsInstrumenter> {
  public:
   StreamCreateWithFlagsInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaStreamCreateWithFlags", &decls->cucorr_stream_create.f);
+    setup("cudaStreamCreateWithFlags", &decls->cusan_stream_create.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 2);
@@ -483,7 +483,7 @@ class StreamCreateWithFlagsInstrumenter : public SimpleInstrumenter<StreamCreate
 class StreamWaitEventInstrumenter : public SimpleInstrumenter<StreamWaitEventInstrumenter> {
  public:
   StreamWaitEventInstrumenter(callback::FunctionDecl* decls) {
-    setup("cudaStreamWaitEvent", &decls->cucorr_stream_wait_event.f);
+    setup("cudaStreamWaitEvent", &decls->cusan_stream_wait_event.f);
   }
   static llvm::SmallVector<Value*, 1> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     assert(args.size() == 3);
@@ -497,7 +497,7 @@ class StreamWaitEventInstrumenter : public SimpleInstrumenter<StreamWaitEventIns
 class CudaHostRegister : public SimpleInstrumenter<CudaHostRegister> {
  public:
   CudaHostRegister(callback::FunctionDecl* decls) {
-    setup("cudaHostRegister", &decls->cucorr_host_register.f);
+    setup("cudaHostRegister", &decls->cusan_host_register.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -512,7 +512,7 @@ class CudaHostRegister : public SimpleInstrumenter<CudaHostRegister> {
 class CudaHostUnregister : public SimpleInstrumenter<CudaHostUnregister> {
  public:
   CudaHostUnregister(callback::FunctionDecl* decls) {
-    setup("cudaHostUnregister", &decls->cucorr_host_unregister.f);
+    setup("cudaHostUnregister", &decls->cusan_host_unregister.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -525,7 +525,7 @@ class CudaHostUnregister : public SimpleInstrumenter<CudaHostUnregister> {
 class CudaHostFree : public SimpleInstrumenter<CudaHostFree> {
  public:
   CudaHostFree(callback::FunctionDecl* decls) {
-    setup("cudaFreeHost", &decls->cucorr_host_free.f);
+    setup("cudaFreeHost", &decls->cusan_host_free.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -538,7 +538,7 @@ class CudaHostFree : public SimpleInstrumenter<CudaHostFree> {
 class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
  public:
   CudaMallocManaged(callback::FunctionDecl* decls) {
-    setup("cudaMallocManaged", &decls->cucorr_managed_alloc.f);
+    setup("cudaMallocManaged", &decls->cusan_managed_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr, size_t size, u32 flags)
@@ -554,7 +554,7 @@ class CudaMallocManaged : public SimpleInstrumenter<CudaMallocManaged> {
 class CudaMalloc : public SimpleInstrumenter<CudaMalloc> {
  public:
   CudaMalloc(callback::FunctionDecl* decls) {
-    setup("cudaMalloc", &decls->cucorr_device_alloc.f);
+    setup("cudaMalloc", &decls->cusan_device_alloc.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr, size_t size)
@@ -569,7 +569,7 @@ class CudaMalloc : public SimpleInstrumenter<CudaMalloc> {
 class CudaFree : public SimpleInstrumenter<CudaFree> {
  public:
   CudaFree(callback::FunctionDecl* decls) {
-    setup("cudaFree", &decls->cucorr_device_free.f);
+    setup("cudaFree", &decls->cusan_device_free.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* ptr)
@@ -584,7 +584,7 @@ class CudaFree : public SimpleInstrumenter<CudaFree> {
 class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
  public:
   CudaStreamQuery(callback::FunctionDecl* decls) {
-    setup("cudaStreamQuery", &decls->cucorr_stream_query.f);
+    setup("cudaStreamQuery", &decls->cusan_stream_query.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* stream)
@@ -601,7 +601,7 @@ class CudaStreamQuery : public SimpleInstrumenter<CudaStreamQuery> {
 class CudaEventQuery : public SimpleInstrumenter<CudaEventQuery> {
  public:
   CudaEventQuery(callback::FunctionDecl* decls) {
-    setup("cudaEventQuery", &decls->cucorr_event_query.f);
+    setup("cudaEventQuery", &decls->cusan_event_query.f);
   }
   static llvm::SmallVector<Value*, 2> map_arguments(IRBuilder<>& irb, llvm::ArrayRef<Value*> args) {
     //( void* event)
@@ -616,4 +616,4 @@ class CudaEventQuery : public SimpleInstrumenter<CudaEventQuery> {
 };
 
 }  // namespace transform
-}  // namespace cucorr
+}  // namespace cusan

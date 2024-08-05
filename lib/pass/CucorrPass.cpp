@@ -1,10 +1,10 @@
-// cucorr library
-// Copyright (c) 2023 cucorr authors
+// cusan library
+// Copyright (c) 2023 cusan authors
 // Distributed under the BSD 3-Clause License license.
 // (See accompanying file LICENSE)
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "CucorrPass.h"
+#include "CusanPass.h"
 
 #include "AnalysisTransform.h"
 #include "CommandLine.h"
@@ -35,11 +35,11 @@
 
 using namespace llvm;
 
-namespace cucorr {
+namespace cusan {
 
-class CucorrPass : public llvm::PassInfoMixin<CucorrPass> {
-  cucorr::ModelHandler kernel_models_;
-  callback::FunctionDecl cucorr_decls_;
+class CusanPass : public llvm::PassInfoMixin<CusanPass> {
+  cusan::ModelHandler kernel_models_;
+  callback::FunctionDecl cusan_decls_;
 
  public:
   llvm::PreservedAnalyses run(llvm::Module&, llvm::ModuleAnalysisManager&);
@@ -51,38 +51,38 @@ class CucorrPass : public llvm::PassInfoMixin<CucorrPass> {
   bool runOnKernelFunc(llvm::Function&);
 };
 
-class LegacyCucorrPass : public llvm::ModulePass {
+class LegacyCusanPass : public llvm::ModulePass {
  private:
-  CucorrPass pass_impl_;
+  CusanPass pass_impl_;
 
  public:
   static char ID;  // NOLINT
 
-  LegacyCucorrPass() : ModulePass(ID){};
+  LegacyCusanPass() : ModulePass(ID){};
 
   bool runOnModule(llvm::Module& module) override;
 
-  ~LegacyCucorrPass() override = default;
+  ~LegacyCusanPass() override = default;
 };
 
-bool LegacyCucorrPass::runOnModule(llvm::Module& module) {
+bool LegacyCusanPass::runOnModule(llvm::Module& module) {
   const auto modified = pass_impl_.runOnModule(module);
   return modified;
 }
 
-llvm::PreservedAnalyses CucorrPass::run(llvm::Module& module, llvm::ModuleAnalysisManager&) {
+llvm::PreservedAnalyses CusanPass::run(llvm::Module& module, llvm::ModuleAnalysisManager&) {
   const auto changed = runOnModule(module);
   return changed ? llvm::PreservedAnalyses::none() : llvm::PreservedAnalyses::all();
 }
 
-bool CucorrPass::runOnModule(llvm::Module& module) {
-  cucorr_decls_.initialize(module);
+bool CusanPass::runOnModule(llvm::Module& module) {
+  cusan_decls_.initialize(module);
   const auto kernel_models_file = [&]() {
-    if (cl_cucorr_kernel_file.getNumOccurrences()) {
-      return cl_cucorr_kernel_file.getValue();
+    if (cl_cusan_kernel_file.getNumOccurrences()) {
+      return cl_cusan_kernel_file.getValue();
     }
 
-    const auto* data_file = getenv("CUCORR_KERNEL_DATA_FILE");
+    const auto* data_file = getenv("CUSAN_KERNEL_DATA_FILE");
     if (data_file) {
       return std::string{data_file};
     }
@@ -92,7 +92,7 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
         return std::string{cu->getFilename()} + "-data.yaml";
       }
     }
-    return std::string{"cucorr-kernel.yaml"};
+    return std::string{"cusan-kernel.yaml"};
   }();
 
   LOG_DEBUG("Using model data file " << kernel_models_file)
@@ -108,14 +108,14 @@ bool CucorrPass::runOnModule(llvm::Module& module) {
   return changed;
 }
 
-bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
+bool CusanPass::runOnKernelFunc(llvm::Function& function) {
   if (function.isDeclaration()) {
     return false;
   }
   LOG_DEBUG("[DEVICE] running on kernel: " << function.getName());
   auto data = device::analyze_device_kernel(&function);
   if (data) {
-    if (!cl_cucorr_quiet.getValue()) {
+    if (!cl_cusan_quiet.getValue()) {
       LOG_DEBUG("[Device] Kernel data: " << data.value())
     }
     this->kernel_models_.insert(data.value());
@@ -124,59 +124,59 @@ bool CucorrPass::runOnKernelFunc(llvm::Function& function) {
   return false;
 }
 
-bool CucorrPass::runOnFunc(llvm::Function& function) {
+bool CusanPass::runOnFunc(llvm::Function& function) {
   const auto stub_name = util::try_demangle(function);
 
-  if (util::starts_with_any_of(stub_name, "__tsan", "__typeart", "_cucorr_", "MPI::", "std::", "MPI_")) {
+  if (util::starts_with_any_of(stub_name, "__tsan", "__typeart", "_cusan_", "MPI::", "std::", "MPI_")) {
     return false;
   }
 
   bool modified = false;
-  transform::DeviceSyncInstrumenter(&cucorr_decls_).instrument(function);
-  transform::StreamSyncInstrumenter(&cucorr_decls_).instrument(function);
-  transform::EventSyncInstrumenter(&cucorr_decls_).instrument(function);
-  transform::EventRecordInstrumenter(&cucorr_decls_).instrument(function);
-  transform::EventRecordFlagsInstrumenter(&cucorr_decls_).instrument(function);
-  transform::EventCreateInstrumenter(&cucorr_decls_).instrument(function);
-  transform::StreamCreateInstrumenter(&cucorr_decls_).instrument(function);
-  transform::MemsetAsyncInstrumenter(&cucorr_decls_).instrument(function);
-  transform::MemcpyAsyncInstrumenter(&cucorr_decls_).instrument(function);
-  transform::CudaMemsetInstrumenter(&cucorr_decls_).instrument(function);
-  transform::CudaMemcpyInstrumenter(&cucorr_decls_).instrument(function);
-  transform::StreamWaitEventInstrumenter(&cucorr_decls_).instrument(function);
-  transform::CudaMallocHost(&cucorr_decls_).instrument(function);
-  transform::CudaHostAlloc(&cucorr_decls_).instrument(function);
-  transform::CudaHostFree(&cucorr_decls_).instrument(function);
-  transform::CudaHostRegister(&cucorr_decls_).instrument(function);
-  transform::CudaHostUnregister(&cucorr_decls_).instrument(function);
-  transform::CudaMallocManaged(&cucorr_decls_).instrument(function);
-  transform::CudaMalloc(&cucorr_decls_).instrument(function);
-  transform::CudaFree(&cucorr_decls_).instrument(function);
-  transform::CudaStreamQuery(&cucorr_decls_).instrument(function);
-  transform::CudaEventQuery(&cucorr_decls_).instrument(function);
-  transform::StreamCreateWithFlagsInstrumenter(&cucorr_decls_).instrument(function);
+  transform::DeviceSyncInstrumenter(&cusan_decls_).instrument(function);
+  transform::StreamSyncInstrumenter(&cusan_decls_).instrument(function);
+  transform::EventSyncInstrumenter(&cusan_decls_).instrument(function);
+  transform::EventRecordInstrumenter(&cusan_decls_).instrument(function);
+  transform::EventRecordFlagsInstrumenter(&cusan_decls_).instrument(function);
+  transform::EventCreateInstrumenter(&cusan_decls_).instrument(function);
+  transform::StreamCreateInstrumenter(&cusan_decls_).instrument(function);
+  transform::MemsetAsyncInstrumenter(&cusan_decls_).instrument(function);
+  transform::MemcpyAsyncInstrumenter(&cusan_decls_).instrument(function);
+  transform::CudaMemsetInstrumenter(&cusan_decls_).instrument(function);
+  transform::CudaMemcpyInstrumenter(&cusan_decls_).instrument(function);
+  transform::StreamWaitEventInstrumenter(&cusan_decls_).instrument(function);
+  transform::CudaMallocHost(&cusan_decls_).instrument(function);
+  transform::CudaHostAlloc(&cusan_decls_).instrument(function);
+  transform::CudaHostFree(&cusan_decls_).instrument(function);
+  transform::CudaHostRegister(&cusan_decls_).instrument(function);
+  transform::CudaHostUnregister(&cusan_decls_).instrument(function);
+  transform::CudaMallocManaged(&cusan_decls_).instrument(function);
+  transform::CudaMalloc(&cusan_decls_).instrument(function);
+  transform::CudaFree(&cusan_decls_).instrument(function);
+  transform::CudaStreamQuery(&cusan_decls_).instrument(function);
+  transform::CudaEventQuery(&cusan_decls_).instrument(function);
+  transform::StreamCreateWithFlagsInstrumenter(&cusan_decls_).instrument(function);
   auto data_for_host = host::kernel_model_for_stub(&function, this->kernel_models_);
   if (data_for_host) {
     transform::CallInstrumenter(analysis::CudaKernelInvokeCollector{data_for_host.value()},
-                                transform::KernelInvokeTransformer{&cucorr_decls_}, function)
+                                transform::KernelInvokeTransformer{&cusan_decls_}, function)
         .instrument();
   }
   return modified;
 }
 
-}  // namespace cucorr
+}  // namespace cusan
 
-#define DEBUG_TYPE "cucorr-pass"
+#define DEBUG_TYPE "cusan-pass"
 
 //.....................
 // New PM
 //.....................
-llvm::PassPluginLibraryInfo getCucorrPassPluginInfo() {
-  return {LLVM_PLUGIN_API_VERSION, "cucorr", LLVM_VERSION_STRING, [](PassBuilder& pass_builder) {
+llvm::PassPluginLibraryInfo getCusanPassPluginInfo() {
+  return {LLVM_PLUGIN_API_VERSION, "cusan", LLVM_VERSION_STRING, [](PassBuilder& pass_builder) {
             pass_builder.registerPipelineParsingCallback(
                 [](StringRef name, ModulePassManager& module_pm, ArrayRef<PassBuilder::PipelineElement>) {
-                  if (name == "cucorr") {
-                    module_pm.addPass(cucorr::CucorrPass());
+                  if (name == "cusan") {
+                    module_pm.addPass(cusan::CusanPass());
                     return true;
                   }
                   return false;
@@ -185,20 +185,20 @@ llvm::PassPluginLibraryInfo getCucorrPassPluginInfo() {
 }
 
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
-  return getCucorrPassPluginInfo();
+  return getCusanPassPluginInfo();
 }
 
 //.....................
 // Old PM
 //.....................
-char cucorr::LegacyCucorrPass::ID = 0;  // NOLINT
+char cusan::LegacyCusanPass::ID = 0;  // NOLINT
 
-static RegisterPass<cucorr::LegacyCucorrPass> x("cucorr", "Cucorr Pass");  // NOLINT
+static RegisterPass<cusan::LegacyCusanPass> x("cusan", "Cusan Pass");  // NOLINT
 
-ModulePass* createCucorrPass() {
-  return new cucorr::LegacyCucorrPass();
+ModulePass* createCusanPass() {
+  return new cusan::LegacyCusanPass();
 }
 
-extern "C" void AddCucorrPass(LLVMPassManagerRef pass_manager) {
-  unwrap(pass_manager)->add(createCucorrPass());
+extern "C" void AddCusanPass(LLVMPassManagerRef pass_manager) {
+  unwrap(pass_manager)->add(createCusanPass());
 }

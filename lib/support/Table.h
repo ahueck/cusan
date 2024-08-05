@@ -10,8 +10,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 
-#ifndef CUCORR_TABLE_H
-#define CUCORR_TABLE_H
+#ifndef CUSAN_TABLE_H
+#define CUSAN_TABLE_H
 
 #include <algorithm>
 #include <iomanip>
@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-namespace cucorr {
+namespace cusan {
 
 namespace detail {
 template <typename Number>
@@ -214,5 +214,5 @@ struct Table {
     s.flush();
   }
 };
-}  // namespace cucorr
-#endif  // CUCORR_TABLE_H
+}  // namespace cusan
+#endif  // CUSAN_TABLE_H

@@ -2,14 +2,14 @@
 // Created by ahueck on 08.01.23.
 //
 
-#ifndef CUCORR_UTIL_H
-#define CUCORR_UTIL_H
+#ifndef CUSAN_UTIL_H
+#define CUSAN_UTIL_H
 
 #include "llvm/Demangle/Demangle.h"
 
 #include <string>
 
-namespace cucorr::util {
+namespace cusan::util {
 
 // template <typename... Strings>
 // bool starts_with_any_of(llvm::StringRef lhs, Strings&&... rhs) {
@@ -41,6 +41,6 @@ inline std::string try_demangle(const T& site) {
   }
 }
 
-}  // namespace cucorr::util
+}  // namespace cusan::util
 
-#endif  // CUCORR_UTIL_H
+#endif  // CUSAN_UTIL_H

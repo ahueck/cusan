@@ -14,23 +14,23 @@
 #endif /* __cplusplus */
 #endif /* _EXTERN_C_ */
 
-namespace cucorr::mpi::runtime {
+namespace cusan::mpi::runtime {
 
-using namespace cucorr::runtime::softcounter;
+using namespace cusan::runtime::softcounter;
 
-#define CUCORR_MPI_EVENTS        \
-  cucorr_stat_handle(Send);      \
-  cucorr_stat_handle(Isend);     \
-  cucorr_stat_handle(Recv);      \
-  cucorr_stat_handle(Irecv);     \
-  cucorr_stat_handle(Wait);      \
-  cucorr_stat_handle(Waitall);   \
-  cucorr_stat_handle(SendRecv);  \
-  cucorr_stat_handle(Reduce);    \
-  cucorr_stat_handle(AllReduce); \
-  cucorr_stat_handle(Barrier);
+#define CUSAN_MPI_EVENTS        \
+  cusan_stat_handle(Send);      \
+  cusan_stat_handle(Isend);     \
+  cusan_stat_handle(Recv);      \
+  cusan_stat_handle(Irecv);     \
+  cusan_stat_handle(Wait);      \
+  cusan_stat_handle(Waitall);   \
+  cusan_stat_handle(SendRecv);  \
+  cusan_stat_handle(Reduce);    \
+  cusan_stat_handle(AllReduce); \
+  cusan_stat_handle(Barrier);
 
-#define cucorr_stat_handle(name) \
+#define cusan_stat_handle(name) \
   inline void inc_##name() {     \
   }                              \
   inline Counter get_##name() {  \
@@ -39,11 +39,11 @@ using namespace cucorr::runtime::softcounter;
 class MPINoneRecorder final {
  public:
 #include "TsanEvents.inc"
-  CUCORR_MPI_EVENTS
+  CUSAN_MPI_EVENTS
 };
 
-#undef cucorr_stat_handle
-#define cucorr_stat_handle(name) \
+#undef cusan_stat_handle
+#define cusan_stat_handle(name) \
   AtomicCounter name = 0;        \
   inline void inc_##name() {     \
     this->name++;                \
@@ -55,10 +55,10 @@ class MPINoneRecorder final {
 struct MPIAccessRecorder final {
  public:
 #include "TsanEvents.inc"
-  CUCORR_MPI_EVENTS
+  CUSAN_MPI_EVENTS
 };
 
-#ifdef CUCORR_SOFTCOUNTER
+#ifdef CUSAN_SOFTCOUNTER
 using MPIRecorder = MPIAccessRecorder;
 #else
 using MPIRecorder = MPINoneRecorder;
@@ -72,24 +72,24 @@ struct MPIRuntime final {
   }
 
   ~MPIRuntime() {
-#undef cucorr_stat_handle
-#define cucorr_stat_handle(name) table.put(Row::make(#name, mpi_recorder.get_##name()));
-#if CUCORR_SOFTCOUNTER
-    Table table{"Cucorr MPI runtime statistics"};
+#undef cusan_stat_handle
+#define cusan_stat_handle(name) table.put(Row::make(#name, mpi_recorder.get_##name()));
+#if CUSAN_SOFTCOUNTER
+    Table table{"Cusan MPI runtime statistics"};
 #include "TsanEvents.inc"
-    CUCORR_MPI_EVENTS
+    CUSAN_MPI_EVENTS
     table.print(std::cout);
 #endif
-#undef cucorr_stat_handle
-#undef CUCORR_MPI_EVENTS
+#undef cusan_stat_handle
+#undef CUSAN_MPI_EVENTS
   }
 
  private:
   MPIRuntime() = default;
 };
-}  // namespace cucorr::mpi::runtime
+}  // namespace cusan::mpi::runtime
 
-using namespace cucorr::mpi::runtime;
+using namespace cusan::mpi::runtime;
 
 _EXTERN_C_ int PMPI_Send(const void* buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm);
 

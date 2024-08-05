@@ -1,4 +1,4 @@
-function(configure_cucorr_script input output)
+function(configure_cusan_script input output)
   cmake_parse_arguments(
     ARG "" "" "INSTALL_MODE;COMPILER;WITH_FILTER;APPLY_MODE" ${ARGN}
   )
@@ -34,15 +34,15 @@ function(configure_cucorr_script input output)
       set(TYPEART_PASS_DIR ${TYPEART_BIN_DIR}/lib/passes)
       set(TYPEART_ANALYSIS_PASS_DIR ${TYPEART_BIN_DIR}/analysis)
 
-      set(CUCORR_RT_DIR ${CMAKE_BINARY_DIR}/lib/runtime)
-      set(CUCORR_PASS_DIR ${CMAKE_BINARY_DIR}/lib/pass)
+      set(CUSAN_RT_DIR ${CMAKE_BINARY_DIR}/lib/runtime)
+      set(CUSAN_PASS_DIR ${CMAKE_BINARY_DIR}/lib/pass)
     endif()
 
     if(EXECUTABLE_OUTPUT_PATH)
         set(TYPEART_BINARY_DIR ${EXECUTABLE_OUTPUT_PATH})
     else()
         set(TYPEART_BINARY_DIR ${TYPEART_BIN_DIR})
-        set(CUCORR_BINARY_DIR ${CMAKE_BINARY_DIR})
+        set(CUSAN_BINARY_DIR ${CMAKE_BINARY_DIR})
     endif()
 
     set(TYPEART_RELOCATABLE 0)
@@ -85,15 +85,15 @@ function(configure_cucorr_script input output)
 
   list(JOIN TYPEART_SAN_FLAGS " " TYPEART_SAN_FLAGS)
 
-  set(CUCORR_INCLUDE_DIRS "-I${PROJECT_SOURCE_DIR}/lib/runtime")
+  set(CUSAN_INCLUDE_DIRS "-I${PROJECT_SOURCE_DIR}/lib/runtime")
 
   if(ARG_APPLY_MODE)
-    set(CUCORR_RUN_SCRIPT 0)
+    set(CUSAN_RUN_SCRIPT 0)
   else()
-    set(CUCORR_RUN_SCRIPT 1)
+    set(CUSAN_RUN_SCRIPT 1)
   endif()
 
-  cucorr_target_generate_file(${input} ${output})
+  cusan_target_generate_file(${input} ${output})
 endfunction()
 
 function(typeart_find_mpi_vendor_helper symbol ret_value)
@@ -157,66 +157,66 @@ endif()
 
 find_package(MPI)
 if(MPI_C_FOUND)
-  configure_cucorr_script(
-    cucorr-wrapper.in cucorr-mpicc${CMAKE_DEBUG_POSTFIX}
+  configure_cusan_script(
+    cusan-wrapper.in cusan-mpicc${CMAKE_DEBUG_POSTFIX}
     INSTALL_MODE ON
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICC}"
   )
-  configure_cucorr_script(
-    cucorr-wrapper.in cucorr-mpicc-test
+  configure_cusan_script(
+    cusan-wrapper.in cusan-mpicc-test
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICC}"
   )
 endif()
 
 if(MPI_CXX_FOUND)
-  configure_cucorr_script(
-    cucorr-wrapper.in cucorr-mpic++${CMAKE_DEBUG_POSTFIX}
+  configure_cusan_script(
+    cusan-wrapper.in cusan-mpic++${CMAKE_DEBUG_POSTFIX}
     INSTALL_MODE ON
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICXX}"
   )
-  configure_cucorr_script(
-    cucorr-wrapper.in cucorr-mpic++-test
+  configure_cusan_script(
+    cusan-wrapper.in cusan-mpic++-test
     WITH_FILTER ON
     COMPILER "${TYPEART_MPICXX}"
   )
 endif()
 
-configure_cucorr_script(
-  cucorr-wrapper.in cucorr-clang${CMAKE_DEBUG_POSTFIX}
+configure_cusan_script(
+  cusan-wrapper.in cusan-clang${CMAKE_DEBUG_POSTFIX}
   INSTALL_MODE ON
   COMPILER ${TYPEART_CLANG_EXEC}
 )
-configure_cucorr_script(
-  cucorr-wrapper.in cucorr-clang++${CMAKE_DEBUG_POSTFIX}
+configure_cusan_script(
+  cusan-wrapper.in cusan-clang++${CMAKE_DEBUG_POSTFIX}
   INSTALL_MODE ON
   COMPILER ${TYPEART_CLANGCXX_EXEC}
 )
 
-configure_cucorr_script(
-  cucorr-wrapper.in cucorr-clang-test
+configure_cusan_script(
+  cusan-wrapper.in cusan-clang-test
   COMPILER ${TYPEART_CLANG_EXEC}
 )
-configure_cucorr_script(
-  cucorr-wrapper.in cucorr-clang++-test
+configure_cusan_script(
+  cusan-wrapper.in cusan-clang++-test
   COMPILER ${TYPEART_CLANGCXX_EXEC}
 )
 
-#configure_cucorr_script(cucorr-tmpl.sh.in run.sh)
-configure_cucorr_script(
-  cucorr-tmpl.sh.in apply.sh
+#configure_cusan_script(cusan-tmpl.sh.in run.sh)
+configure_cusan_script(
+  cusan-tmpl.sh.in apply.sh
   APPLY_MODE ON
 )
 
-configure_cucorr_script(cucorr-wrapper.in cucorr-clang.sh)
+configure_cusan_script(cusan-wrapper.in cusan-clang.sh)
 
 install(
   PROGRAMS
-    ${CMAKE_CURRENT_BINARY_DIR}/cucorr-clang++${CMAKE_DEBUG_POSTFIX}
-    ${CMAKE_CURRENT_BINARY_DIR}/cucorr-clang${CMAKE_DEBUG_POSTFIX}
-    $<$<BOOL:${MPI_C_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cucorr-mpicc${CMAKE_DEBUG_POSTFIX}>
-    $<$<BOOL:${MPI_CXX_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cucorr-mpic++${CMAKE_DEBUG_POSTFIX}>
+    ${CMAKE_CURRENT_BINARY_DIR}/cusan-clang++${CMAKE_DEBUG_POSTFIX}
+    ${CMAKE_CURRENT_BINARY_DIR}/cusan-clang${CMAKE_DEBUG_POSTFIX}
+    $<$<BOOL:${MPI_C_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cusan-mpicc${CMAKE_DEBUG_POSTFIX}>
+    $<$<BOOL:${MPI_CXX_FOUND}>:${CMAKE_CURRENT_BINARY_DIR}/cusan-mpic++${CMAKE_DEBUG_POSTFIX}>
   DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

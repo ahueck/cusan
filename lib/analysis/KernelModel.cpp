@@ -7,7 +7,7 @@
 #include "support/CudaUtil.h"
 #include "support/Util.h"
 
-namespace cucorr {
+namespace cusan {
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const KernelModel& model) {
   os << "Kernel: " << util::try_demangle(model.kernel_name) << "\n";
@@ -31,7 +31,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const AccessState& arg) {
   return os;
 }
 
-bool ModelHandler::insert(const cucorr::KernelModel& model) {
+bool ModelHandler::insert(const cusan::KernelModel& model) {
   auto result =
       llvm::find_if(models, [&model](const auto& model_) { return model.kernel_name == model_.kernel_name; });
 
@@ -97,4 +97,4 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ModelHandler& arg) {
   return os;
 }
 
-}  // namespace cucorr
+}  // namespace cusan

@@ -1,4 +1,4 @@
-function(cucorr_target_format target comment)
+function(cusan_target_format target comment)
   macro(filter_dir dir_name_)
     foreach (source_file ${ALL_CXX_FILES})
       string(FIND ${source_file} ${dir_name_} EXCLUDE_FOUND)
