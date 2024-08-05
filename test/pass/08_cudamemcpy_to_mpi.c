@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (world_rank == 1) {
-    // to make sure it doesnt wait for the previous memcpy on default stream we start in another one
+    // to make sure it doesn't wait for the previous memcpy on default stream we start in another one
     cudaMemcpyAsync(h_data, d_data, size * sizeof(int), cudaMemcpyDeviceToHost, extraStream);
     cudaStreamSynchronize(extraStream);
     for (int i = 0; i < size; i++) {

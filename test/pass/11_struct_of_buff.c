@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
 #ifdef CUSAN_SYNC
   cudaDeviceSynchronize();
 #endif
-  kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write traget
+  kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write target
 
   cudaDeviceSynchronize();
 

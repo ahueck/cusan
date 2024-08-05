@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
     MPI_Recv(buffStor->buff2, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     //MPI_Recv(buffStor.buff1, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
-    kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write traget
+    kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write target
   }
   cudaDeviceSynchronize();
 

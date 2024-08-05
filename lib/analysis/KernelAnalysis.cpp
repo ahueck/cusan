@@ -64,7 +64,7 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value)
           continue;
         }
 
-        // Given we've explictily handled the callee operand above, what's left
+        // Given we've explicitly handled the callee operand above, what's left
         // must be a data operand (e.g. argument or operand bundle)
         const unsigned use_index = cb.getDataOperandNo(u);
 
@@ -183,7 +183,7 @@ inline AccessState state(const llvm::Attribute::AttrKind mem) {
 
 struct ChildInfo {
   llvm::Value* val;
-  llvm::SmallVector<int32_t> indicies;
+  llvm::SmallVector<int32_t> indices;
 };
 
 void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {},
@@ -196,7 +196,7 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector
     // not nice making copies of the stack all the time idk
     auto curr_info   = work_list.pop_back_val();
     auto* value      = curr_info.val;
-    auto index_stack = curr_info.indicies;
+    auto index_stack = curr_info.indices;
 
     Type* value_type = value->getType();
     if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {

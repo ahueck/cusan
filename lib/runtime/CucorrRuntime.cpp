@@ -106,7 +106,7 @@ class Runtime {
     // meaning that all work submitted after from the cpu should also be run after the default kernels are done
     // TODO: double check with blocking
     auto search_result = streams_.find(Stream());
-    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    assert(search_result != streams_.end() && "Tried using stream that wasn't created prior");
     if (curr_fiber_ == search_result->second) {
       LOG_TRACE("[cusan]        syncing all other blocking GPU streams to run after since its default stream")
       for (auto& [s, sync_var] : streams_) {
@@ -136,7 +136,7 @@ class Runtime {
   void switch_to_stream(Stream stream) {
     LOG_TRACE("[cusan]    Switching to stream: " << stream.handle)
     auto search_result = streams_.find(stream);
-    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    assert(search_result != streams_.end() && "Tried using stream that wasn't created prior");
     TsanSwitchToFiber(search_result->second, 0);
     stats_recorder.inc_TsanSwitchToFiber();
     if (search_result->first.isDefaultStream()) {
@@ -167,7 +167,7 @@ class Runtime {
 
   void happens_after_stream(Stream stream) {
     auto search_result = streams_.find(stream);
-    assert(search_result != streams_.end() && "Tried using stream that wasnt created prior");
+    assert(search_result != streams_.end() && "Tried using stream that wasn't created prior");
     TsanHappensAfter(search_result->second);
     stats_recorder.inc_TsanHappensAfter();
   }
@@ -180,7 +180,7 @@ class Runtime {
   // Sync the event on the current stream
   void sync_event(Event event) {
     auto search_result = events_.find(event);
-    assert(search_result != events_.end() && "Tried using event that wasnt recorded to prior");
+    assert(search_result != events_.end() && "Tried using event that wasn't recorded to prior");
     LOG_TRACE("[cusan]    Sync event: " << event << " recorded on stream:" << events_[event].handle)
     happens_after_stream(events_[event]);
   }
@@ -193,7 +193,7 @@ class Runtime {
   void free_allocation(void* ptr, bool must_exist = true) {
     bool found = allocations_.find(ptr) != allocations_.end();
     if (must_exist) {
-      assert(found && "Tried to delete a non existant allocation");
+      assert(found && "Tried to delete a non existent allocation");
     }
     if (found) {
       allocations_.erase(ptr);
@@ -352,7 +352,7 @@ void _cusan_create_stream(RawStream* stream, cusan_StreamCreateFlags flags) {
 }
 
 void _cusan_memcpy(void* target, const void* from, size_t count, cusan_MemcpyKind kind) {
-  // NOTE: atleast for cuda non async memcpy is beheaving like on the default stream
+  // NOTE: at least for cuda non async memcpy is beheaving like on the default stream
   // https://forums.developer.nvidia.com/t/is-cudamemcpyasync-cudastreamsynchronize-on-default-stream-equal-to-cudamemcpy-non-async/108853/5
   LOG_TRACE("[cusan]Memcpy " << count << " bytes from:" << from << " to:" << target)
 
@@ -399,7 +399,7 @@ void _cusan_memcpy(void* target, const void* from, size_t count, cusan_MemcpyKin
     // initiated.
 
     auto* alloc_info = runtime.get_allocation_info(from);
-    // if we couldnt find alloc info we just assume the worst and dont sync
+    // if we couldn't find alloc info we just assume the worst and don't sync
     if (alloc_info && !alloc_info->is_pinned) {
       runtime.happens_after_stream(Stream());
       LOG_TRACE("[cusan]   DefaultStream+Blocking")
@@ -448,7 +448,7 @@ void _cusan_memset(void* target, int, size_t count) {
   runtime.switch_to_cpu();
 
   auto* alloc_info = runtime.get_allocation_info(target);
-  // if we couldnt find alloc info we just assume the worst and dont sync
+  // if we couldn't find alloc info we just assume the worst and don't sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUSAN_SYNC_DETAIL_LEVEL == 0) {
     LOG_TRACE("[cusan]    "
               << "Memset is blocking")
@@ -522,7 +522,7 @@ void _cusan_stream_wait_event(RawStream stream, Event event, unsigned int flags)
 }
 
 void _cusan_host_alloc(void** ptr, size_t size, unsigned int) {
-  // atleast based of this presentation and some comments in the cuda forums this syncs the whole devic
+  // at least based of this presentation and some comments in the cuda forums this syncs the whole device
   //  https://developer.download.nvidia.com/CUDA/training/StreamsAndConcurrencyWebinar.pdf
   LOG_TRACE("[cusan]host alloc " << *ptr << " with size " << size)
   auto& runtime = Runtime::get();

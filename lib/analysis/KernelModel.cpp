@@ -51,13 +51,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const FunctionSubArg& arg) 
     os << "<null>";
   }
   if (!arg.indices.empty()) {
-    os << ", indicies:[";
+    os << ", indices:[";
     for (auto index : arg.indices) {
       os << index << ", ";
     }
     os << "]";
   } else {
-    os << ", indicies:[]";
+    os << ", indices:[]";
   }
   os << ", ptr: " << static_cast<int>(arg.is_pointer) << ", rw: " << arg.state << "]";
   return os;

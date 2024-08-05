@@ -75,7 +75,7 @@ struct CudaKernelInvokeCollector {
       // because of ABI? clang might convert struct argument to a (byval)pointer
       // but the actual cuda argument is by value so we double check if the expected type matches the actual type
       // and only if then we load it. I think this should handle all cases since the only case it would fail
-      // is if we do strct* and send that (byval)pointer but that shouldnt be a thing?
+      // is if we do strct* and send that (byval)pointer but that shouldn't be a thing?
       bool real_ptr =
           res.is_pointer &&
           (dyn_cast<PointerType>(dyn_cast<PointerType>(val->getType())->getPointerElementType()) != nullptr);

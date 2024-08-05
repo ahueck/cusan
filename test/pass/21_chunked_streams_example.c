@@ -17,7 +17,7 @@
 #include <mpi.h>
 
 #define SENDER 0
-#define RECIEVER 1
+#define RECEIVER 1
 #define CHUNKS 4
 #define SIZE 1024
 // Example size, you can adjust as needed
@@ -83,13 +83,13 @@ int main(int argc, char* argv[]) {
       // Explicit GPU sync before MPI
       cudaStreamSynchronize(streams[j]);
       int offset = j * chunk_size;
-      MPI_Isend(host_buf + offset, chunk_size, MPI_DOUBLE, RECIEVER, 0, MPI_COMM_WORLD, &requests[j]);
+      MPI_Isend(host_buf + offset, chunk_size, MPI_DOUBLE, RECEIVER, 0, MPI_COMM_WORLD, &requests[j]);
     }
     MPI_Waitall(CHUNKS, requests, MPI_STATUSES_IGNORE);
 
     more_computation_on_GPU(dev_buf);
 
-  } else if (world_rank == RECIEVER) { /* receiver */
+  } else if (world_rank == RECEIVER) { /* receiver */
     // Calculate chunk size and offset
     int chunk_size = SIZE / CHUNKS;
     MPI_Request requests[CHUNKS];
