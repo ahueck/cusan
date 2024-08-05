@@ -1,9 +1,9 @@
-# cusan
+# CuSan  &middot; [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 CuSan is tool for analyzing and instrumenting CUDA codes to track CUDA domain-specific memory accesses and synchronization semantics in order to find data races between (asynchronous) CUDA calls and the host.
 
 To that end, CuSan uses LLVM to instrument CUDA calls during compilation, to eventually track their semantics in our runtime.
-The runtime passes these information appropriately to ThreadSanitizer (packaged with Clang/LLVM) for the final data race analysis.
+The runtime passes these information appropriately to [ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) (packaged with Clang/LLVM) for the final data race analysis.
 
 ## Usage
 
@@ -47,7 +47,7 @@ to build.
 ### Dependencies
 CuSan was tested with:
 - System modules: `1) gcc/11.2.0 2) cuda/11.5 3) openmpi/4.1.6 4) git/2.40.0 5) python/3.10.10 6) clang/14.0.6`
-- External libraries: TypeART (https://github.com/tudasc/TypeART/tree/feat/cuda), FiberPool (optional)
+- External libraries: TypeART (https://github.com/tudasc/TypeART/tree/feat/cuda), FiberPool (optional, default off)
 - Testing: llvm-lit, FileCheck
 - GPU: Tesla T4 and Tesla V100 (mostly: arch=sm_70)
 
