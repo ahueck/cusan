@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 05.07.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "KernelAnalysis.h"
 
@@ -13,11 +15,12 @@
 #include <llvm/Transforms/IPO/Attributor.h>
 #include <utility>
 
-namespace cucorr {
+namespace cusan {
 
 namespace device {
 
-// stolen and modified from clang19 https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
+// Taken from (and extended to interprocedural analysis) from clang19
+// https://llvm.org/doxygen/FunctionAttrs_8cpp_source.html#l00611
 static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value) {
   using namespace llvm;
   SmallVector<Use*, 32> worklist;
@@ -61,7 +64,7 @@ static llvm::Attribute::AttrKind determinePointerAccessAttrs(llvm::Value* value)
           continue;
         }
 
-        // Given we've explictily handled the callee operand above, what's left
+        // Given we've explicitly handled the callee operand above, what's left
         // must be a data operand (e.g. argument or operand bundle)
         const unsigned use_index = cb.getDataOperandNo(u);
 
@@ -180,20 +183,20 @@ inline AccessState state(const llvm::Attribute::AttrKind mem) {
 
 struct ChildInfo {
   llvm::Value* val;
-  llvm::SmallVector<int32_t> indicies;
+  llvm::SmallVector<int32_t> indices;
 };
 
-void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {}, llvm::SmallSet<llvm::Function*, 8> visited_funcs = {}) {
+void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector<int32_t> initial_index_stack = {},
+                      llvm::SmallSet<llvm::Function*, 8> visited_funcs = {}) {
   using namespace llvm;
   llvm::SmallVector<ChildInfo, 32> work_list;
   work_list.push_back({init_val, std::move(initial_index_stack)});
-  
 
   while (!work_list.empty()) {
     // not nice making copies of the stack all the time idk
     auto curr_info   = work_list.pop_back_val();
     auto* value      = curr_info.val;
-    auto index_stack = curr_info.indicies;
+    auto index_stack = curr_info.indices;
 
     Type* value_type = value->getType();
     if (auto* ptr_type = dyn_cast<PointerType>(value_type)) {
@@ -220,10 +223,11 @@ void collect_children(FunctionArg& arg, llvm::Value* init_val, llvm::SmallVector
               // arg.subargs.push_back(sub_arg);
               //  this argument should have already been looked at in the current function so if we
               //  check it again we should merge the results to get the correct accessstate
-              auto* res = llvm::find_if(arg.subargs, [=](auto a) { return a.value.getValueOr(nullptr) == ipo_argument; });
+              auto* res =
+                  llvm::find_if(arg.subargs, [=](auto a) { return a.value.getValueOr(nullptr) == ipo_argument; });
               if (res == arg.subargs.end()) {
                 res->state = mergeAccessState(res->state, state(access_res));
-              }else{
+              } else {
                 assert(false);
               }
             }
@@ -362,4 +366,4 @@ std::optional<KernelModel> kernel_model_for_stub(llvm::Function* func, const Mod
 
 }  // namespace host
 
-}  // namespace cucorr
+}  // namespace cusan

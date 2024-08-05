@@ -1,11 +1,11 @@
 // clang-format off
 // TODO: Fix segfault when program terminates.
 
-// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUSAN_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t-sync.exe
+// RUN: %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 // clang-format on
 
 // CHECK: [Error] sync
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 
   if (world_rank == 0) {
     kernel<<<blocksPerGrid, threadsPerBlock>>>(d_data, size);
-#ifdef CUCORR_SYNC
+#ifdef CUSAN_SYNC
     cudaDeviceSynchronize();  // FIXME: uncomment for correct execution
 #endif
     MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);

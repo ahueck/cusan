@@ -1,4 +1,4 @@
-function(cucorr_target_define_file_basename targetname)
+function(cusan_target_define_file_basename targetname)
   get_target_property(source_files "${targetname}" SOURCES)
 
   foreach(sourcefile ${source_files})
@@ -10,7 +10,7 @@ function(cucorr_target_define_file_basename targetname)
     get_filename_component(basename "${sourcefile}" NAME)
 
     list(APPEND compile_defs
-      "CUCORR_LOG_BASENAME=\"${basename}\""
+      "CUSAN_LOG_BASENAME=\"${basename}\""
     )
 
     set_source_files_properties("${sourcefile}"
@@ -20,7 +20,7 @@ function(cucorr_target_define_file_basename targetname)
 endfunction()
 
 
-function (cucorr_target_generate_file input output)
+function (cusan_target_generate_file input output)
   file(READ ${input} contents)
   string(CONFIGURE "${contents}" contents @ONLY)
   file(GENERATE

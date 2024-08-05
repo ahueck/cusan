@@ -1,11 +1,11 @@
 // clang-format off
-// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %cusan_ldpreload %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUSAN_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t-sync.exe
+// RUN: %cusan_ldpreload %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
-// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
+// RUN: %apply %s --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 // clang-format on
 
 // CHECK-DAG: data race
@@ -15,12 +15,12 @@
 // CHECK-SYNC-NOT: [Error] sync
 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_create_stream
 
 // CHECK-LLVM-IR: cudaMemcpyAsync
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy_async
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_memcpy_async
 // CHECK-LLVM-IR: invoke i32 @cudaStreamSynchronize
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_sync_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_sync_stream
 
 #include "../support/gpu_mpi.h"
 
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 
   if (world_rank == 0) {
     kernel<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(d_data, size);
-#ifdef CUCORR_SYNC
+#ifdef CUSAN_SYNC
     cudaStreamSynchronize(stream);  // FIXME: uncomment for correct execution
 #endif
     MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);

@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 19.12.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "KernelModel.h"
 
@@ -26,18 +28,18 @@ auto open_flag() {
 }  // namespace compat
 
 template <>
-struct llvm::yaml::ScalarTraits<cucorr::AccessState> {
-  static void output(const cucorr::AccessState& value, void*, llvm::raw_ostream& out) {
-    out << cucorr::access_state_string(value);
+struct llvm::yaml::ScalarTraits<cusan::AccessState> {
+  static void output(const cusan::AccessState& value, void*, llvm::raw_ostream& out) {
+    out << cusan::access_state_string(value);
   }
 
-  static llvm::StringRef input(llvm::StringRef scalar, void*, cucorr::AccessState& value) {
-    // FIXME keep stringliteral and enum value in sync, see cucorr::access_state_string
-    value = llvm::StringSwitch<cucorr::AccessState>(scalar)
-                .Case("Write", cucorr::AccessState::kWritten)
-                .Case("None", cucorr::AccessState::kNone)
-                .Case("Read", cucorr::AccessState::kRead)
-                .Default(cucorr::AccessState::kRW);
+  static llvm::StringRef input(llvm::StringRef scalar, void*, cusan::AccessState& value) {
+    // FIXME keep stringliteral and enum value in sync, see cusan::access_state_string
+    value = llvm::StringSwitch<cusan::AccessState>(scalar)
+                .Case("Write", cusan::AccessState::kWritten)
+                .Case("None", cusan::AccessState::kNone)
+                .Case("Read", cusan::AccessState::kRead)
+                .Default(cusan::AccessState::kRW);
     return StringRef();
   }
 
@@ -48,8 +50,8 @@ struct llvm::yaml::ScalarTraits<cucorr::AccessState> {
 };
 
 template <>
-struct llvm::yaml::MappingTraits<cucorr::FunctionArg> {
-  static void mapping(IO& io, cucorr::FunctionArg& info) {
+struct llvm::yaml::MappingTraits<cusan::FunctionArg> {
+  static void mapping(IO& io, cusan::FunctionArg& info) {
     if (!io.outputting()) {
       info.value = llvm::None;
     }
@@ -59,11 +61,11 @@ struct llvm::yaml::MappingTraits<cucorr::FunctionArg> {
   }
 };
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionArg)
+LLVM_YAML_IS_SEQUENCE_VECTOR(cusan::FunctionArg)
 
 template <>
-struct llvm::yaml::MappingTraits<cucorr::FunctionSubArg> {
-  static void mapping(IO& io, cucorr::FunctionSubArg& info) {
+struct llvm::yaml::MappingTraits<cusan::FunctionSubArg> {
+  static void mapping(IO& io, cusan::FunctionSubArg& info) {
     if (!io.outputting()) {
       info.value = llvm::None;
     }
@@ -73,12 +75,11 @@ struct llvm::yaml::MappingTraits<cucorr::FunctionSubArg> {
   }
 };
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::FunctionSubArg)
-
+LLVM_YAML_IS_SEQUENCE_VECTOR(cusan::FunctionSubArg)
 
 template <>
-struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
-  static void mapping(IO& io, cucorr::KernelModel& info) {
+struct llvm::yaml::MappingTraits<cusan::KernelModel> {
+  static void mapping(IO& io, cusan::KernelModel& info) {
     if (!io.outputting()) {
       info.kernel = llvm::None;
     }
@@ -88,9 +89,9 @@ struct llvm::yaml::MappingTraits<cucorr::KernelModel> {
   }
 };
 
-LLVM_YAML_IS_SEQUENCE_VECTOR(cucorr::KernelModel)
+LLVM_YAML_IS_SEQUENCE_VECTOR(cusan::KernelModel)
 
-namespace cucorr::io {
+namespace cusan::io {
 [[nodiscard]] llvm::ErrorOr<bool> store(const ModelHandler& kernel_db, std::string_view file) {
   using namespace llvm;
 
@@ -132,4 +133,4 @@ namespace cucorr::io {
   return !in.error();
 }
 
-}  // namespace cucorr::io
+}  // namespace cusan::io

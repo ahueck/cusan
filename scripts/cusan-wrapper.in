@@ -42,7 +42,7 @@ function typeart_is_wrapper_disabled_fn() {
     return 1
     ;;
   esac
-  case "${CUCORR_WRAPPER}" in
+  case "${CUSAN_WRAPPER}" in
   off | OFF | 0 | false | FALSE)
     return 1
     ;;
@@ -50,34 +50,34 @@ function typeart_is_wrapper_disabled_fn() {
   return 0
 }
 
-function cucorr_global_init_fn() {
+function cusan_global_init_fn() {
     local -r typeart_use_rel_path=@TYPEART_RELOCATABLE@
     if [ "$typeart_use_rel_path" == 0 ]; then
-      local -r cucorr_bin_dir="@CUCORR_BINARY_DIR@"
-      local -r cucorr_lib_dir="@CUCORR_RT_DIR@"
-      local -r cucorr_include_dir="@CUCORR_INCLUDE_DIRS@"
-      local -r cucorr_pass="@CUCORR_PASS_DIR@/$<TARGET_FILE_NAME:cucorr::TransformPass>"
+      local -r cusan_bin_dir="@CUSAN_BINARY_DIR@"
+      local -r cusan_lib_dir="@CUSAN_RT_DIR@"
+      local -r cusan_include_dir="@CUSAN_INCLUDE_DIRS@"
+      local -r cusan_pass="@CUSAN_PASS_DIR@/$<TARGET_FILE_NAME:cusan::TransformPass>"
     else
       # shellcheck disable=SC2155
-      local -r cucorr_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      local -r cusan_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
       # shellcheck disable=SC2155
-      local -r cucorr_install_dir="$(dirname "${cucorr_bin_dir}")"
-      local -r cucorr_lib_dir="${cucorr_install_dir}/@CMAKE_INSTALL_LIBDIR@"
-      local -r cucorr_include_dir="-I${cucorr_install_dir}/@CMAKE_INSTALL_INCLUDEDIR@/@PROJECT_NAME@"
-      local -r cucorr_pass="${cucorr_lib_dir}/$<TARGET_FILE_NAME:cucorr::TransformPass>"
+      local -r cusan_install_dir="$(dirname "${cusan_bin_dir}")"
+      local -r cusan_lib_dir="${cusan_install_dir}/@CMAKE_INSTALL_LIBDIR@"
+      local -r cusan_include_dir="-I${cusan_install_dir}/@CMAKE_INSTALL_INCLUDEDIR@/@PROJECT_NAME@"
+      local -r cusan_pass="${cusan_lib_dir}/$<TARGET_FILE_NAME:cusan::TransformPass>"
     fi
 
-  readonly cucorr_ldflags="-L${cucorr_lib_dir}/ \
-                   -Wl,-rpath,${cucorr_lib_dir}/ \
-                   -l$<TARGET_FILE_BASE_NAME:cucorr::Runtime>"
+  readonly cusan_ldflags="-L${cusan_lib_dir}/ \
+                   -Wl,-rpath,${cusan_lib_dir}/ \
+                   -l$<TARGET_FILE_BASE_NAME:cusan::Runtime>"
 
-  readonly cucorr_includes="${cucorr_include_dir}"
-  readonly cucorr_plugin="-load "${cucorr_pass}" -cucorr"
-  readonly cucorr_cpu_mode=""
+  readonly cusan_includes="${cusan_include_dir}"
+  readonly cusan_plugin="-load "${cusan_pass}" -cusan"
+  readonly cusan_cpu_mode=""
   if [ ${typeart_wrapper_emit_ir} == 1 ]; then
-    readonly cucorr_gpu_mode=""
+    readonly cusan_gpu_mode=""
   else
-    readonly cucorr_gpu_mode="" #"--cucorr-quiet"
+    readonly cusan_gpu_mode="" #"--cusan-quiet"
   fi
 }
 
@@ -436,7 +436,7 @@ function typeart_main_link_fn() {
     typeart_link_objs="${typeart_link_objs} ${typeart_cuda_link_objs}"
   fi
   # shellcheck disable=SC2086 disable=SC2068
-  $typeart_compiler ${cucorr_includes} ${typeart_includes} ${typeart_ldflags} ${cucorr_ldflags} ${typeart_cuda_ldflags} ${typeart_san_flags} ${typeart_link_more_args} ${typeart_link_objs}
+  $typeart_compiler ${cusan_includes} ${typeart_includes} ${typeart_ldflags} ${cusan_ldflags} ${typeart_cuda_ldflags} ${typeart_san_flags} ${typeart_link_more_args} ${typeart_link_objs}
 }
 
 # shellcheck disable=SC2068
@@ -506,9 +506,9 @@ function typeart_tu_out_fn() {
 function typeart_compile_cuda_device_fn() {
   $typeart_compiler ${typeart_wrapper_more_args} -gdwarf-4 ${typeart_includes} ${typeart_to_llvm_flags} \
     -fPIC -x cuda "${typeart_source_file}" --cuda-device-only --cuda-gpu-arch=${typeart_cuda_code_arch} -o - |
-    typeart_opt_fn "${out_basename}"_cucorr_gpu_mem2reg.ll -mem2reg |
-    typeart_opt_fn "${out_basename}"_cucorr_gpu.ll ${cucorr_plugin} ${cucorr_gpu_mode} |
-    typeart_opt_fn "${out_basename}"_cucorr_gpu_opt.ll ${typeart_optimize} |
+    typeart_opt_fn "${out_basename}"_cusan_gpu_mem2reg.ll -mem2reg |
+    typeart_opt_fn "${out_basename}"_cusan_gpu.ll ${cusan_plugin} ${cusan_gpu_mode} |
+    typeart_opt_fn "${out_basename}"_cusan_gpu_opt.ll ${typeart_optimize} |
     $typeart_llc_tool -dwarf-directory=0 -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
     -o "${out_basename}".ptx
 
@@ -523,10 +523,10 @@ function typeart_compile_cuda_device_fn() {
 
 function typeart_compile_host_fn() {
   # shellcheck disable=SC2086
-  typeart_compiler_fn "${out_basename}"_base.ll -gdwarf-4 ${typeart_wrapper_more_args} ${typeart_includes} ${cucorr_includes} ${typeart_san_flags} \
+  typeart_compiler_fn "${out_basename}"_base.ll -gdwarf-4 ${typeart_wrapper_more_args} ${typeart_includes} ${cusan_includes} ${typeart_san_flags} \
     ${typeart_to_llvm_flags} ${typeart_to_llvm_more_flags} "${typeart_source_file}" -o - |
     typeart_opt_fn "${out_basename}"_heap.ll ${typeart_plugin} ${typeart_heap_mode_args} ${typeart_cmdline_args_heap} |
-    typeart_opt_fn "${out_basename}"_cucorr_cpu.ll ${cucorr_plugin} ${cucorr_cpu_mode} |
+    typeart_opt_fn "${out_basename}"_cusan_cpu.ll ${cusan_plugin} ${cusan_cpu_mode} |
     typeart_opt_fn "${out_basename}"_opt.ll ${typeart_optimize} |
     typeart_opt_fn "${out_basename}"_stack.ll ${typeart_plugin} ${typeart_stack_mode_args} ${typeart_cmdline_args_stack} |
     typeart_tu_out_fn
@@ -546,9 +546,9 @@ function typeart_main_compile_fn() {
     typeart_object_file="${out_basename}".o
   fi
 
-  local -r cucorr_is_installed=@TYPEART_RELOCATABLE@
-  if [ $cucorr_is_installed == 0 ];then
-    export CUCORR_KERNEL_DATA_FILE="${out_basename}".yaml
+  local -r cusan_is_installed=@TYPEART_RELOCATABLE@
+  if [ $cusan_is_installed == 0 ];then
+    export CUSAN_KERNEL_DATA_FILE="${out_basename}".yaml
   fi
 
   if [ "$typeart_found_cuda" == 1 ]; then
@@ -561,7 +561,7 @@ function typeart_main_compile_fn() {
 
 function typeart_main_driver_fn() {
   typeart_global_init_fn
-  cucorr_global_init_fn
+  cusan_global_init_fn
   typeart_global_cuda_init_fn
 
   typeart_is_wrapper_disabled_fn

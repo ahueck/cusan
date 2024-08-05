@@ -1,11 +1,11 @@
 // clang-format off
-// RUN: %wrapper-cxx %tsan-compile-flags -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %tsan-options %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-cxx %tsan-compile-flags -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %tsan-options %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-cxx %tsan-compile-flags -DCUCORR_SYNC -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %tsan-options %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-cxx %tsan-compile-flags -DCUSAN_SYNC -O1 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t-sync.exe
+// RUN: %tsan-options %cusan_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
-// UN: %apply %s -DCUCORR_SYNC --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
+// UN: %apply %s -DCUSAN_SYNC --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
 
 // clang-format on
 
@@ -44,18 +44,19 @@ int main() {
 
   cudaMallocManaged(&managed_data, size * sizeof(int));
   cudaMemset(managed_data, 0, size * sizeof(int));
-  
+
   write_kernel_delay<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(managed_data, size, 1316134912);
   cudaEventRecord(event1, stream1);
-  
-#ifdef CUCORR_SYNC
-  while(cudaEventQuery(event1) != cudaSuccess){}
+
+#ifdef CUSAN_SYNC
+  while (cudaEventQuery(event1) != cudaSuccess) {
+  }
 #endif
 
   for (int i = 0; i < size; i++) {
     if (managed_data[i] == 0) {
       printf("[Error] sync %i\n", managed_data[i]);
-      //break;
+      // break;
     }
   }
 

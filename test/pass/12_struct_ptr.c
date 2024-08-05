@@ -1,11 +1,11 @@
 // clang-format off
-// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck %s
+// RUN: %wrapper-mpicxx %tsan-compile-flags -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %cusan_ldpreload %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck %s
 
-// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUCORR_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t-sync.exe
-// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
+// RUN: %wrapper-mpicxx %tsan-compile-flags -DCUSAN_SYNC -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t-sync.exe
+// RUN: %cusan_ldpreload %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t-sync.exe 2>&1 | %filecheck %s --allow-empty --check-prefix CHECK-SYNC
 
-// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
+// RUN: %apply %s --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 > test_out.ll
 
 // CHECK-DAG: data race
 
@@ -14,20 +14,20 @@
 
 // CHECK-LLVM-IR: @main(i32 noundef %0, i8** noundef %1)
 // CHECK-LLVM-IR: invoke i32 @cudaMalloc
-// CHECK-LLVM-IR: call void @_cucorr_device_alloc
+// CHECK-LLVM-IR: call void @_cusan_device_alloc
 // CHECK-LLVM-IR: invoke i32 @cudaMalloc
-// CHECK-LLVM-IR: call void @_cucorr_device_alloc
+// CHECK-LLVM-IR: call void @_cusan_device_alloc
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_create_stream
 // CHECK-LLVM-IR: invoke i32 @cudaStreamCreate
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_create_stream
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_create_stream
 
 // CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy
 // CHECK-LLVM-IR: invoke i32 @cudaStreamDestroy
 // CHECK-LLVM-IR: invoke i32 @cudaFree({{.*}}[[free_ptr1:%[0-9a-z]+]])
-// CHECK-LLVM-IR: call void @_cucorr_device_free({{.*}}[[free_ptr1]])
+// CHECK-LLVM-IR: call void @_cusan_device_free({{.*}}[[free_ptr1]])
 // CHECK-LLVM-IR: invoke i32 @cudaFree({{.*}}[[free_ptr2:%[0-9a-z]+]])
-// CHECK-LLVM-IR: call void @_cucorr_device_free({{.*}}[[free_ptr2]])
+// CHECK-LLVM-IR: call void @_cusan_device_free({{.*}}[[free_ptr2]])
 
 
 #include "../support/gpu_mpi.h"
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
     kernel1<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);
     kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(buffStor, size);//no problem since kernel 1 and 3 write to different
     kernel2<<<blocksPerGrid, threadsPerBlock, 0, stream2>>>(buffStor, size);//also no problem since they on same stream
-#ifdef CUCORR_SYNC
+#ifdef CUSAN_SYNC
   cudaDeviceSynchronize();
 #endif
     MPI_Send(buffStor->buff2, size, MPI_INT, 1, 0, MPI_COMM_WORLD);
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
     MPI_Recv(buffStor->buff2, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     //MPI_Recv(buffStor.buff1, size, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
-    kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write traget
+    kernel3<<<blocksPerGrid, threadsPerBlock, 0, stream1>>>(buffStor, size);//problem since different stream but same write target
   }
   cudaDeviceSynchronize();
 

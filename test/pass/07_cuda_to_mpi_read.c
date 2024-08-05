@@ -1,20 +1,20 @@
 // clang-format off
-// RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cucorr_test_dir/%basename_t.exe
-// RUN: %cucorr_ldpreload %tsan-options %mpi-exec -n 2 %cucorr_test_dir/%basename_t.exe 2>&1 | %filecheck --allow-empty %s
+// RUN: %wrapper-mpicxx -O2 -g %s -x cuda -gencode arch=compute_70,code=sm_70 -o %cusan_test_dir/%basename_t.exe
+// RUN: %cusan_ldpreload %tsan-options %mpi-exec -n 2 %cusan_test_dir/%basename_t.exe 2>&1 | %filecheck --allow-empty %s
 
-// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
+// RUN: %apply %s --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s  -DFILENAME=%s --allow-empty --check-prefix CHECK-LLVM-IR
 // clang-format on
 
 // CHECK-NOT: data race
 // CHECK-NOT: [Error] sync
 
 // CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_sync_device
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_sync_device
 
 // CHECK-LLVM-IR: invoke i32 @cudaDeviceSynchronize
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_sync_device
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_sync_device
 // CHECK-LLVM-IR: invoke i32 @cudaMemcpy(i8* {{.*}}[[target:%[0-9a-z]+]], i8* {{.*}}[[from:%[0-9a-z]+]],
-// CHECK-LLVM-IR: {{call|invoke}} void @_cucorr_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
+// CHECK-LLVM-IR: {{call|invoke}} void @_cusan_memcpy(i8* {{.*}}[[target]], i8* {{.*}}[[from]],
 
 #include "../support/gpu_mpi.h"
 

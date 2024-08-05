@@ -1,14 +1,14 @@
-// RUN: %apply %s --cucorr-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s
+// RUN: %apply %s --cusan-kernel-data=%t.yaml --show_host_ir -x cuda --cuda-gpu-arch=sm_72 2>&1 | %filecheck %s
 
 // CHECK: TypeArtPass [Heap]
 // CHECK-NEXT: Malloc :   2
 
-// CHECK: cudaMemcpy 
-// CHECK: _cucorr_memcpy 
-// CHECK: cudaDeviceSynchronize 
-// CHECK: _cucorr_sync_device 
-// CHECK: cudaMemcpy 
-// CHECK: _cucorr_memcpy 
+// CHECK: cudaMemcpy
+// CHECK: _cusan_memcpy
+// CHECK: cudaDeviceSynchronize
+// CHECK: _cusan_sync_device
+// CHECK: cudaMemcpy
+// CHECK: _cusan_memcpy
 
 #include <stdio.h>
 __device__ void axpy_write(float a, float* y) {

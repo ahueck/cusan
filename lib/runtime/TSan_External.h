@@ -24,7 +24,7 @@ typedef unsigned long long a64;
 
 #include "cstdio"
 
-#ifdef CUCORR_FIBERPOOL
+#ifdef CUSAN_FIBERPOOL
 #include "fiberpool.h"
 #endif
 
@@ -246,7 +246,7 @@ void __attribute__((weak)) __tsan_set_fiber_name(void* fiber, const char* name) 
 #define TsanInitTLC(cv) AnnotateInitTLC(__FILE__, __LINE__, cv)
 #define TsanStartTLC(cv) AnnotateStartTLC(__FILE__, __LINE__, cv)
 
-#ifndef CUCORR_FIBERPOOL
+#ifndef CUSAN_FIBERPOOL
 #define TsanCreateFiber(flags) __tsan_create_fiber(flags)
 #define TsanDestroyFiber(fiber) __tsan_destroy_fiber(fiber)
 #define TsanSwitchToFiber(fiber, flags) __tsan_switch_to_fiber(fiber, flags)

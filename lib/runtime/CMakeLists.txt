@@ -1,40 +1,40 @@
 find_package(MPI)
-add_library(cucorr_mpi_interceptor SHARED MPIInterception.cpp)
-target_link_libraries(cucorr_mpi_interceptor
+add_library(cusan_mpi_interceptor SHARED MPIInterception.cpp)
+target_link_libraries(cusan_mpi_interceptor
   PRIVATE MPI::MPI_CXX
 )
 set_target_properties(
-  cucorr_mpi_interceptor
+  cusan_mpi_interceptor
   PROPERTIES
-  OUTPUT_NAME "CucorrMPIInterceptor"
+  OUTPUT_NAME "CusanMPIInterceptor"
   EXPORT_NAME "MPIInterceptor"
 )
-add_library(cucorr::MPI_Interceptor ALIAS cucorr_mpi_interceptor)
-target_compile_features(cucorr_mpi_interceptor PUBLIC cxx_std_17)
+add_library(cusan::MPI_Interceptor ALIAS cusan_mpi_interceptor)
+target_compile_features(cusan_mpi_interceptor PUBLIC cxx_std_17)
 target_compile_definitions(
-  cucorr_mpi_interceptor
-  PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
-   $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
-   $<$<BOOL:${CUCORR_SOFTCOUNTER}>:CUCORR_SOFTCOUNTER>
+  cusan_mpi_interceptor
+  PRIVATE CUSAN_LOG_LEVEL=${CUSAN_LOG_LEVEL_RT}
+   $<$<BOOL:${CUSAN_FIBERPOOL}>:CUSAN_FIBERPOOL=1>
+   $<$<BOOL:${CUSAN_SOFTCOUNTER}>:CUSAN_SOFTCOUNTER>
 )
 
-target_include_directories(cucorr_mpi_interceptor ${warning_guard}
+target_include_directories(cusan_mpi_interceptor ${warning_guard}
   PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/lib>
 )
 
-if(CUCORR_FIBERPOOL)
-  target_link_libraries(cucorr_mpi_interceptor PUBLIC cucorr::fiberpool)
-  set_target_properties(cucorr_mpi_interceptor PROPERTIES
+if(CUSAN_FIBERPOOL)
+  target_link_libraries(cusan_mpi_interceptor PUBLIC cusan::fiberpool)
+  set_target_properties(cusan_mpi_interceptor PROPERTIES
         BUILD_WITH_INSTALL_RPATH FALSE
         LINK_FLAGS "-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-set(CONFIG_NAME cucorrMPIInterceptor)
+set(CONFIG_NAME cusanMPIInterceptor)
 set(TARGETS_EXPORT_NAME ${CONFIG_NAME}Targets)
 
 install(
-  TARGETS cucorr_mpi_interceptor
+  TARGETS cusan_mpi_interceptor
   EXPORT ${TARGETS_EXPORT_NAME}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -42,71 +42,71 @@ install(
 
 install(
   EXPORT ${TARGETS_EXPORT_NAME}
-  NAMESPACE cucorr::
-  DESTINATION ${CUCORR_INSTALL_CONFIGDIR}
+  NAMESPACE cusan::
+  DESTINATION ${CUSAN_INSTALL_CONFIGDIR}
 )
 
 export(
   EXPORT ${TARGETS_EXPORT_NAME}
   FILE ${CMAKE_BINARY_DIR}/${TARGETS_EXPORT_NAME}.cmake
-  NAMESPACE cucorr::
+  NAMESPACE cusan::
 )
 
-add_library(cucorr_Runtime SHARED CucorrRuntime.cpp CucorrRuntime_cudaSpecific.cpp)
+add_library(cusan_Runtime SHARED CusanRuntime.cpp CusanRuntime_cudaSpecific.cpp)
 set_target_properties(
-  cucorr_Runtime
+  cusan_Runtime
   PROPERTIES
-  OUTPUT_NAME "CucorrRuntime"
+  OUTPUT_NAME "CusanRuntime"
   EXPORT_NAME "Runtime"
 )
-add_library(cucorr::Runtime ALIAS cucorr_Runtime)
+add_library(cusan::Runtime ALIAS cusan_Runtime)
 
-target_compile_features(cucorr_Runtime PUBLIC cxx_std_17)
+target_compile_features(cusan_Runtime PUBLIC cxx_std_17)
 
-target_link_libraries(cucorr_Runtime PRIVATE typeart::Runtime)
+target_link_libraries(cusan_Runtime PRIVATE typeart::Runtime)
 
-if(CUCORR_FIBERPOOL)
-  target_link_libraries(cucorr_Runtime PUBLIC cucorr::fiberpool)
-  set_target_properties(cucorr_Runtime PROPERTIES
+if(CUSAN_FIBERPOOL)
+  target_link_libraries(cusan_Runtime PUBLIC cusan::fiberpool)
+  set_target_properties(cusan_Runtime PROPERTIES
       BUILD_WITH_INSTALL_RPATH FALSE
       LINK_FLAGS "-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 
-target_include_directories(cucorr_Runtime
+target_include_directories(cusan_Runtime
   SYSTEM
   PRIVATE
   ${LLVM_INCLUDE_DIRS}
 )
 
-target_include_directories(cucorr_Runtime ${warning_guard}
+target_include_directories(cusan_Runtime ${warning_guard}
   PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/lib>
 )
 
-cucorr_target_define_file_basename(cucorr_Runtime)
+cusan_target_define_file_basename(cusan_Runtime)
 
 target_compile_definitions(
-  cucorr_Runtime
-  PRIVATE CUCORR_LOG_LEVEL=${CUCORR_LOG_LEVEL_RT}
-   $<$<BOOL:${CUCORR_SYNC_DETAIL_LEVEL}>:CUCORR_SYNC_DETAIL_LEVEL=1>
-   $<$<BOOL:${CUCORR_FIBERPOOL}>:CUCORR_FIBERPOOL=1>
-   $<$<BOOL:${CUCORR_SOFTCOUNTER}>:CUCORR_SOFTCOUNTER>
+  cusan_Runtime
+  PRIVATE CUSAN_LOG_LEVEL=${CUSAN_LOG_LEVEL_RT}
+   $<$<BOOL:${CUSAN_SYNC_DETAIL_LEVEL}>:CUSAN_SYNC_DETAIL_LEVEL=1>
+   $<$<BOOL:${CUSAN_FIBERPOOL}>:CUSAN_FIBERPOOL=1>
+   $<$<BOOL:${CUSAN_SOFTCOUNTER}>:CUSAN_SOFTCOUNTER>
 )
 
-set(CONFIG_NAME cucorrRuntime)
+set(CONFIG_NAME cusanRuntime)
 set(TARGETS_EXPORT_NAME ${CONFIG_NAME}Targets)
 
 install(
-  TARGETS cucorr_Runtime
+  TARGETS cusan_Runtime
   EXPORT ${TARGETS_EXPORT_NAME}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-if(CUCORR_FIBERPOOL)
+if(CUSAN_FIBERPOOL)
 install(
-  TARGETS cucorr_fiberpool
+  TARGETS cusan_fiberpool
   EXPORT ${TARGETS_EXPORT_NAME}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -115,12 +115,12 @@ endif()
 
 install(
   EXPORT ${TARGETS_EXPORT_NAME}
-  NAMESPACE cucorr::
-  DESTINATION ${CUCORR_INSTALL_CONFIGDIR}
+  NAMESPACE cusan::
+  DESTINATION ${CUSAN_INSTALL_CONFIGDIR}
 )
 
 export(
   EXPORT ${TARGETS_EXPORT_NAME}
   FILE ${CMAKE_BINARY_DIR}/${TARGETS_EXPORT_NAME}.cmake
-  NAMESPACE cucorr::
+  NAMESPACE cusan::
 )

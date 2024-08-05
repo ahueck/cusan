@@ -1,10 +1,16 @@
-#include "CucorrRuntime.h"
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "CusanRuntime.h"
 
 #include <cassert>
 #include <cuda_runtime_api.h>
 
-namespace cucorr::runtime {
-cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from) {
+namespace cusan::runtime {
+cusan_MemcpyKind infer_memcpy_direction(const void* target, const void* from) {
   cudaDeviceProp prop;
   cudaGetDeviceProperties(&prop, 0);
   assert(prop.unifiedAddressing && "Can only use default direction for memcpy when Unified memory is supported.");
@@ -19,16 +25,16 @@ cucorr_MemcpyKind infer_memcpy_direction(const void* target, const void* from) {
                        target_attribs.type == cudaMemoryType::cudaMemoryTypeHost;
 
   if (!fromIsHostMem && !targetIsHostMem) {
-    return cucorr_MemcpyDeviceToDevice;
+    return cusan_MemcpyDeviceToDevice;
   }
   if (!fromIsHostMem && targetIsHostMem) {
-    return cucorr_MemcpyDeviceToHost;
+    return cusan_MemcpyDeviceToHost;
   }
   if (fromIsHostMem && !targetIsHostMem) {
-    return cucorr_MemcpyHostToDevice;
+    return cusan_MemcpyHostToDevice;
   }
   // if (fromIsHostMem && targetIsHostMem) {
-  return cucorr_MemcpyHostToHost;
+  return cusan_MemcpyHostToHost;
   // }
 }
-}  // namespace cucorr::runtime
+}  // namespace cusan::runtime

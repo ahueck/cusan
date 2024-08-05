@@ -1,5 +1,5 @@
-#ifndef CUCORR_GPUAWAREMPI_H
-#define CUCORR_GPUAWAREMPI_H
+#ifndef CUSAN_GPUAWAREMPI_H
+#define CUSAN_GPUAWAREMPI_H
 
 // clang-format off
 #include <mpi.h>
@@ -42,4 +42,4 @@ inline bool has_gpu_aware_mpi() {
 }
 #endif
 
-#endif  // CUCORR_GPUAWAREMPI_H
+#endif  // CUSAN_GPUAWAREMPI_H

@@ -1,5 +1,11 @@
-#ifndef LIB_STATSCOUNTER_CUCORR_H_
-#define LIB_STATSCOUNTER_CUCORR_H_
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef LIB_STATSCOUNTER_CUSAN_H_
+#define LIB_STATSCOUNTER_CUSAN_H_
 
 #include "support/Logger.h"
 
@@ -12,30 +18,30 @@
 #include <numeric>
 #include <vector>
 
-#define CUCORR_CUDA_EVENT_LIST                 \
-  cucorr_stat_handle(event_query_calls);       \
-  cucorr_stat_handle(stream_query_calls);      \
-  cucorr_stat_handle(device_free_calls);       \
-  cucorr_stat_handle(device_alloc_calls);      \
-  cucorr_stat_handle(managed_alloc_calls);     \
-  cucorr_stat_handle(host_unregister_calls);   \
-  cucorr_stat_handle(host_register_calls);     \
-  cucorr_stat_handle(stream_wait_event_calls); \
-  cucorr_stat_handle(memset_async_calls);      \
-  cucorr_stat_handle(memcpy_async_calls);      \
-  cucorr_stat_handle(memset_calls);            \
-  cucorr_stat_handle(memcpy_calls);            \
-  cucorr_stat_handle(create_event_calls);      \
-  cucorr_stat_handle(create_stream_calls);     \
-  cucorr_stat_handle(sync_event_calls);        \
-  cucorr_stat_handle(sync_stream_calls);       \
-  cucorr_stat_handle(sync_device_calls);       \
-  cucorr_stat_handle(event_record_calls);      \
-  cucorr_stat_handle(kernel_register_calls);   \
-  cucorr_stat_handle(host_free_calls);         \
-  cucorr_stat_handle(host_alloc_calls);
+#define CUSAN_CUDA_EVENT_LIST                 \
+  cusan_stat_handle(event_query_calls);       \
+  cusan_stat_handle(stream_query_calls);      \
+  cusan_stat_handle(device_free_calls);       \
+  cusan_stat_handle(device_alloc_calls);      \
+  cusan_stat_handle(managed_alloc_calls);     \
+  cusan_stat_handle(host_unregister_calls);   \
+  cusan_stat_handle(host_register_calls);     \
+  cusan_stat_handle(stream_wait_event_calls); \
+  cusan_stat_handle(memset_async_calls);      \
+  cusan_stat_handle(memcpy_async_calls);      \
+  cusan_stat_handle(memset_calls);            \
+  cusan_stat_handle(memcpy_calls);            \
+  cusan_stat_handle(create_event_calls);      \
+  cusan_stat_handle(create_stream_calls);     \
+  cusan_stat_handle(sync_event_calls);        \
+  cusan_stat_handle(sync_stream_calls);       \
+  cusan_stat_handle(sync_device_calls);       \
+  cusan_stat_handle(event_record_calls);      \
+  cusan_stat_handle(kernel_register_calls);   \
+  cusan_stat_handle(host_free_calls);         \
+  cusan_stat_handle(host_alloc_calls);
 
-namespace cucorr::runtime {
+namespace cusan::runtime {
 
 namespace softcounter {
 
@@ -88,18 +94,18 @@ class Statistics {
   }
 };
 
-#define cucorr_stat_handle(name) \
-  inline void inc_##name() {     \
-  }                              \
-  inline Counter get_##name() {  \
-    return 0;                    \
+#define cusan_stat_handle(name) \
+  inline void inc_##name() {    \
+  }                             \
+  inline Counter get_##name() { \
+    return 0;                   \
   }
 
 class NoneRecorder {
  public:
   Statistics stats_w;
   Statistics stats_r;
-  CUCORR_CUDA_EVENT_LIST
+  CUSAN_CUDA_EVENT_LIST
 #include "TsanEvents.inc"
   void inc_TsanMemoryReadCount(unsigned count) {
   }
@@ -107,14 +113,14 @@ class NoneRecorder {
   }
 };
 
-#undef cucorr_stat_handle
-#define cucorr_stat_handle(name) \
-  AtomicCounter name = 0;        \
-  inline void inc_##name() {     \
-    this->name++;                \
-  }                              \
-  inline Counter get_##name() {  \
-    return this->name;           \
+#undef cusan_stat_handle
+#define cusan_stat_handle(name) \
+  AtomicCounter name = 0;       \
+  inline void inc_##name() {    \
+    this->name++;               \
+  }                             \
+  inline Counter get_##name() { \
+    return this->name;          \
   }
 
 struct AccessRecorder {
@@ -122,7 +128,7 @@ struct AccessRecorder {
   Statistics stats_w;
   Statistics stats_r;
 
-  CUCORR_CUDA_EVENT_LIST
+  CUSAN_CUDA_EVENT_LIST
 #include "TsanEvents.inc"
 
   void inc_TsanMemoryReadCount(unsigned count) {
@@ -134,15 +140,15 @@ struct AccessRecorder {
     stats_w.addNumber(count);
   }
 };
-#undef cucorr_stat_handle
+#undef cusan_stat_handle
 }  // namespace softcounter
 
-#ifdef CUCORR_SOFTCOUNTER
+#ifdef CUSAN_SOFTCOUNTER
 using Recorder = softcounter::AccessRecorder;
 #else
 using Recorder = softcounter::NoneRecorder;
 #endif
 
-}  // namespace cucorr::runtime
+}  // namespace cusan::runtime
 
 #endif
