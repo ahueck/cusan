@@ -75,3 +75,12 @@ $> cd cusan
 $> cmake --preset release
 $> cmake --build build --target install --parallel
 ```
+
+#### Build options
+
+| Option                       | Default | Description                                                                                       |
+|------------------------------|:-------:|---------------------------------------------------------------------------------------------------|
+| `CUSAN_FIBERPOOL`            |  `OFF`  | Use external library to efficiently manage fibers creation .                                      |
+| `CUSAN_SOFTCOUNTER`          |  `OFF`  | Runtime stats for calls to ThreadSanitizer and CUDA-callbacks. Only use for stats collection, not race detection.   |
+| `CUSAN_SYNC_DETAIL_LEVEL`    |  `ON`   | Analyze, e.g., memcpy and memcpyasync w.r.t. arguments to determine implicit sync.                |
+| `CUSAN_LOG_LEVEL_RT`         |  `3`    | Granularity of runtime logger. 3 is most verbose, 0 is least. For release, set to 0.              |
