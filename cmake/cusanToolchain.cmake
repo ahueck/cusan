@@ -25,6 +25,7 @@ string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}"
   PROJECT_IS_TOP_LEVEL
 )
 
+find_package(CUDAToolkit REQUIRED)
 find_package(MPI REQUIRED)
 
 FetchContent_Declare(
