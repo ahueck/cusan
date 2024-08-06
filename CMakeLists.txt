@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(
     cusan
     VERSION 0.1.0
-    DESCRIPTION "A cuda-aware MPI correctness checking plugin"
+    DESCRIPTION "A data race detector for CUDA based on ThreadSanitizer"
     HOMEPAGE_URL "https://github.com/ahueck/cusan"
     LANGUAGES CXX C
 )
