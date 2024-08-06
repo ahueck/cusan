@@ -1,6 +1,8 @@
-//
-// Created by ahueck on 22.12.23.
-//
+// cusan library
+// Copyright (c) 2023-2024 cusan authors
+// Distributed under the BSD 3-Clause License license.
+// (See accompanying file LICENSE)
+// SPDX-License-Identifier: BSD-3-Clause
 
 #ifndef LIB_CUSAN_LOGGER_H_
 #define LIB_CUSAN_LOGGER_H_
