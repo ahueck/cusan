@@ -1,25 +1,39 @@
 # CuSan  &middot; [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-CuSan is tool for analyzing and instrumenting CUDA codes to track CUDA domain-specific memory accesses and synchronization semantics in order to find data races between (asynchronous) CUDA calls and the host.
+CuSan is tool to find data races between (asynchronous) CUDA calls and the host.
+To that end, we analyze and instrument CUDA codes to track CUDA domain-specific memory accesses and synchronization semantics during compilation using LLVM.
+Our runtime then passes these information appropriately to [ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) (packaged with Clang/LLVM) for the final data race analysis.
 
-To that end, CuSan uses LLVM to instrument CUDA calls during compilation, to eventually track their semantics in our runtime.
-The runtime passes these information appropriately to [ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) (packaged with Clang/LLVM) for the final data race analysis.
 
 ## Usage
 
 Making use of CuSan consists of two phases:
 
-1. Compile your code with Clang/LLVM (version 14) using one the CuSan compiler wrappers, e.g., `cusan-mpic++`.
-This will analyze and instrument the CUDA API appropriately, and link our runtime.
-2. Execute the target program with our runtime library to accept the callbacks to do data race analysis with our interface based ThreadSanitizer. You need to use the MPI correctness checker MUST or preload our (very) simple MPI interceptor `libCusanMPIInterceptor.so` for CUDA-aware MPI data race detection.
+1. Compile your code with Clang/LLVM (version 14) using one the CuSan compiler wrappers, e.g., `cusan-clang++` or `cusan-mpic++`.
+This will (a) analyze and instrument the CUDA API appropriately, such as kernel calls and their particular memory access semantics (r/w), (b) add ThreadSanitizer instrumentation, and (c) finally link our runtime library.
+2. Execute the target program for the data race analysis. Our runtime internally calls ThreadSanitizer to expose the CUDA synchronization and memory access semantics. 
 
 
-### Example report
-The following is an example report for [03_cuda_to_mpi.c](test/pass/03_cuda_to_mpi.c) of our test suite, excerpt:
+### Checking CUDA-aware MPI applications
+You need to use the MPI correctness checker [MUST](https://hpc.rwth-aachen.de/must/), or preload our (very) simple MPI interceptor `libCusanMPIInterceptor.so` for CUDA-aware MPI data race detection.
+These libraries call ThreadSanitizer with the particular access semantics of MPI. 
+Therefore, the combined semantics of CUDA and MPI are properly exposed to ThreadSanitizer to detect data races of data dependent MPI and CUDA calls.
+
+
+#### Example report
+The following is an example report for [03_cuda_to_mpi.c](test/pass/03_cuda_to_mpi.c) of our test suite, where the necessary synchronization is not called:
 ```c
-   kernel<<<blocksPerGrid, threadsPerBlock>>>(d_data, size);
-    // cudaDeviceSynchronize();  // FIXME: uncomment otherwise a data race happens
-    MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);
+L.23  __global__ void kernel(int* arr, const int N)
+...
+L.58  int* d_data;
+L.59  cudaMalloc(&d_data, size * sizeof(int));
+L.60
+L.61  if (world_rank == 0) {
+L.62    kernel<<<blocksPerGrid, threadsPerBlock>>>(d_data, size);
+L.63  #ifdef CUSAN_SYNC
+L.64    cudaDeviceSynchronize();  // CUSAN_SYNC needs to be defined
+L.65  #endif
+L.66    MPI_Send(d_data, size, MPI_INT, 1, 0, MPI_COMM_WORLD);
 ```
 ```
 ==================
@@ -46,7 +60,7 @@ to build.
 
 ### Dependencies
 CuSan was tested with:
-- System modules: `1) gcc/11.2.0 2) cuda/11.5 3) openmpi/4.1.6 4) git/2.40.0 5) python/3.10.10 6) clang/14.0.6`
+- System modules: `1) gcc/11.2.0 2) cuda/11.8 3) openmpi/4.1.6 4) git/2.40.0 5) python/3.10.10 6) clang/14.0.6`
 - External libraries: TypeART (https://github.com/tudasc/TypeART/tree/feat/cuda), FiberPool (optional, default off)
 - Testing: llvm-lit, FileCheck
 - GPU: Tesla T4 and Tesla V100 (mostly: arch=sm_70)
