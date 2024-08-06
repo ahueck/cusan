@@ -440,8 +440,7 @@ void _cusan_memset(void* target, int, size_t count) {
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_memset_calls();
   runtime.switch_to_stream(Stream());
-  LOG_TRACE("[cusan]    "
-            << "Write to " << target << " with size: " << count)
+  LOG_TRACE("[cusan]    " << "Write to " << target << " with size: " << count)
   TsanMemoryWritePC(target, count, __builtin_return_address(0));
   runtime.stats_recorder.inc_TsanMemoryWrite();
   runtime.happens_before();
@@ -450,12 +449,10 @@ void _cusan_memset(void* target, int, size_t count) {
   auto* alloc_info = runtime.get_allocation_info(target);
   // if we couldn't find alloc info we just assume the worst and don't sync
   if ((alloc_info && (alloc_info->is_pinned || alloc_info->is_managed)) || CUSAN_SYNC_DETAIL_LEVEL == 0) {
-    LOG_TRACE("[cusan]    "
-              << "Memset is blocking")
+    LOG_TRACE("[cusan]    " << "Memset is blocking")
     runtime.happens_after_stream(Stream());
   } else {
-    LOG_TRACE("[cusan]    "
-              << "Memset is not blocking")
+    LOG_TRACE("[cusan]    " << "Memset is not blocking")
     if (!alloc_info) {
       LOG_DEBUG("[cusan]    Failed to get alloc info " << target);
     } else if (!alloc_info->is_pinned && !alloc_info->is_managed) {
@@ -566,8 +563,8 @@ void _cusan_device_alloc(void** ptr, size_t size) {
   LOG_TRACE("[cusan]Device alloc " << *ptr << " with size " << size << " -> implicit device sync")
   auto& runtime = Runtime::get();
   runtime.stats_recorder.inc_device_alloc_calls();
-  runtime.switch_to_stream(Stream());
-  runtime.switch_to_cpu();
+  // runtime.switch_to_stream(Stream());
+  // runtime.switch_to_cpu();
 }
 void _cusan_device_free(void* ptr) {
   // implicit syncs device
