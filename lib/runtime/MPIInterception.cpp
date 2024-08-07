@@ -132,8 +132,10 @@ _EXTERN_C_ int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source,
 
 thread_local void* async_fiber = nullptr;
 
-int PMPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request* request);
-int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request* request) {
+_EXTERN_C_ int PMPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm,
+                          MPI_Request* request);
+_EXTERN_C_ int MPI_Irecv(void* buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm,
+                         MPI_Request* request) {
   int _wrap_py_return_val = PMPI_Irecv(buf, count, datatype, source, tag, comm, request);
 
   int type_size;
@@ -222,10 +224,12 @@ _EXTERN_C_ int MPI_Waitall(int count, MPI_Request array_of_requests[], MPI_Statu
   return _wrap_py_return_val;
 }
 
-int PMPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, void* recvbuf,
-                  int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status* status);
-int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag, void* recvbuf,
-                 int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status* status) {
+_EXTERN_C_ int PMPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+                             void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
+                             MPI_Comm comm, MPI_Status* status);
+_EXTERN_C_ int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+                            void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm,
+                            MPI_Status* status) {
   int _wrap_py_return_val = PMPI_Sendrecv(sendbuf, sendcount, sendtype, dest, sendtag, recvbuf, recvcount, recvtype,
                                           source, recvtag, comm, status);
 
@@ -246,8 +250,8 @@ int MPI_Sendrecv(const void* sendbuf, int sendcount, MPI_Datatype sendtype, int 
   return _wrap_py_return_val;
 }
 
-int PMPI_Barrier(MPI_Comm comm);
-int MPI_Barrier(MPI_Comm comm) {
+_EXTERN_C_ int PMPI_Barrier(MPI_Comm comm);
+_EXTERN_C_ int MPI_Barrier(MPI_Comm comm) {
   int _wrap_py_return_val = PMPI_Barrier(comm);
   auto& rec               = MPIRuntime::get().mpi_recorder;
   if (!async_fiber) {
@@ -263,10 +267,10 @@ int MPI_Barrier(MPI_Comm comm) {
   return _wrap_py_return_val;
 }
 
-int PMPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
-                MPI_Comm comm);
-int MPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
-               MPI_Comm comm) {
+_EXTERN_C_ int PMPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
+                           MPI_Comm comm);
+_EXTERN_C_ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root,
+                          MPI_Comm comm) {
   int _wrap_py_return_val = PMPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm);
   auto& rec               = MPIRuntime::get().mpi_recorder;
   {
@@ -282,8 +286,10 @@ int MPI_Reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datat
   return _wrap_py_return_val;
 }
 
-int PMPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);
-int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op, MPI_Comm comm) {
+_EXTERN_C_ int PMPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+                              MPI_Comm comm);
+_EXTERN_C_ int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype datatype, MPI_Op op,
+                             MPI_Comm comm) {
   int _wrap_py_return_val = PMPI_Allreduce(sendbuf, recvbuf, count, datatype, op, comm);
   auto& rec               = MPIRuntime::get().mpi_recorder;
   {

@@ -29,6 +29,8 @@ target_include_directories(cusan_mpi_interceptor
   ${LLVM_INCLUDE_DIRS}
 )
 
+target_link_libraries(cusan_mpi_interceptor PRIVATE LLVMSupport)
+
 if(CUSAN_FIBERPOOL)
   target_link_libraries(cusan_mpi_interceptor PUBLIC cusan::fiberpool)
   set_target_properties(cusan_mpi_interceptor PROPERTIES
