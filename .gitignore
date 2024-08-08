@@ -35,6 +35,7 @@ CMakeLists.txt.user
 
 # Misc folder
 .settings/
+.cache/
 
 # CLion
 .idea/

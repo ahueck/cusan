@@ -1,22 +1,36 @@
 @LIT_SITE_CFG_IN_HEADER@
 
 import sys
+import os
+
+# RWTH CLAIX: force UCX such that CUDA-aware OpenMPI works
+config.environment['OMPI_MCA_pml'] = "ucx"
+
+# Inherit *all* environment variables, otherwise crashes (TODO: find out required env variables)
+for envvar in os.environ:
+    config.environment[envvar] = os.environ[envvar]
+    continue
 
 # LLVM toolchain:
-config.clang_cpp = "@CUCORR_CLANGCXX_EXEC@"
-config.clang = "@CUCORR_CLANG_EXEC@"
-config.opt = "@CUCORR_OPT_EXEC@"
-config.opt_args = "@CUCORR_OPT_ARGS@"
-config.llc = "@CUCORR_LLC_EXEC@"
-config.filecheck = "@CUCORR_FILECHECK_EXEC@"
+config.clang_cpp = "@CUSAN_CLANGCXX_EXEC@"
+config.clang = "@CUSAN_CLANG_EXEC@"
+config.opt = "@CUSAN_OPT_EXEC@"
+config.opt_args = "@CUSAN_OPT_ARGS@"
+config.llc = "@CUSAN_LLC_EXEC@"
+config.filecheck = "@CUSAN_FILECHECK_EXEC@"
+config.mpiexec="@MPIEXEC@"
+
+config.cusan_build_dir="@CUSAN_BUILD_DIR@"
 
 # Project related:
-config.cucorr_lib_dir = "@CUCORR_LIBRARY_DIR@"
-config.cucorr_pass_dir = "@CUCORR_PASS_DIR@"
-config.cucorr_runtime_dir = "@CUCORR_RUNTIME_DIR@"
-config.cucorr_script_dir = "@CUCORR_SCRIPT_DIR@"
-config.cucorr_pass = "$<TARGET_FILE_NAME:cucorr::TransformPass>"
+config.cusan_lib_dir = "@CUSAN_LIBRARY_DIR@"
+config.cusan_pass_dir = "@CUSAN_PASS_DIR@"
+config.cusan_runtime_dir = "@CUSAN_RUNTIME_DIR@"
+config.cusan_script_dir = "@CUSAN_SCRIPT_DIR@"
+config.cusan_pass = "$<TARGET_FILE_NAME:cusan::TransformPass>"
+config.cusan_mpi_interceptor = "$<TARGET_FILE:cusan::MPI_Interceptor>"
+
 
 # Let the main config do the real work.
 config.loaded_site_config = True
-lit_config.load_config(config, "@CUCORR_PROJECT_DIR@/test/lit.cfg")
+lit_config.load_config(config, "@CUSAN_PROJECT_DIR@/test/lit.cfg")

@@ -1,4 +1,4 @@
-function(cucorr_llvm_module name sources)
+function(cusan_llvm_module name sources)
   # TODO default of include_dirs is private
   cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;DEPENDS;LINK_LIBS" ${ARGN})
 
@@ -26,7 +26,7 @@ function(cucorr_llvm_module name sources)
     )
   endif()
 
-  cucorr_target_define_file_basename(${name})
+  cusan_target_define_file_basename(${name})
 
   target_compile_definitions(${name}
     PRIVATE
@@ -34,7 +34,7 @@ function(cucorr_llvm_module name sources)
   )
 endfunction()
 
-function(cucorr_find_llvm_progs target names)
+function(cusan_find_llvm_progs target names)
   cmake_parse_arguments(ARG "ABORT_IF_MISSING;SHOW_VAR" "DEFAULT_EXE" "HINTS" ${ARGN})
   set(TARGET_TMP ${target})
 

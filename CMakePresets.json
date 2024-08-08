@@ -19,7 +19,7 @@
       "name": "flags-clang",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wcast-qual -Wshadow -Wformat=2 -Wundef -Werror=float-equal"
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wcast-qual -Wshadow -Wformat=2 -Wundef"
       }
     },
     {
@@ -40,7 +40,8 @@
         "clang-toolchain", "flags-cmake", "flags-clang"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CUSAN_LOG_LEVEL_RT": "0"
       }
     },
     {
@@ -52,7 +53,8 @@
         "clang-toolchain"
       ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CUSAN_LOG_LEVEL_RT": "0"
       }
     }
   ]

@@ -1,0 +1,599 @@
+#!/bin/bash
+#
+# Based on:
+# TypeART library
+#
+# Copyright (c) 2017-2022 TypeART Authors
+# Distributed under the BSD 3-Clause license.
+# (See accompanying file LICENSE.txt or copy at
+# https://opensource.org/licenses/BSD-3-Clause)
+#
+# Project home: https://github.com/tudasc/TypeART
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
+function typeart_global_env_var_init_fn() {
+  if [ -n "${TYPEART_WRAPPER_CONFIG+x}" ]; then
+    typeart_cmdline_args_heap="${TYPEART_WRAPPER_CONFIG}"
+    typeart_cmdline_args_stack="${TYPEART_WRAPPER_CONFIG}"
+  fi
+  if [ -n "${TYPEART_WRAPPER_HEAP_CONFIG+x}" ]; then
+    typeart_cmdline_args_heap="${TYPEART_WRAPPER_HEAP_CONFIG}"
+  fi
+  if [ -n "${TYPEART_WRAPPER_STACK_CONFIG+x}" ]; then
+    typeart_cmdline_args_stack="${TYPEART_WRAPPER_STACK_CONFIG}"
+  fi
+
+  # shellcheck disable=SC2153
+  case "${TYPEART_WRAPPER_EMIT_IR}" in
+  on | ON | 1 | true | TRUE)
+    typeart_wrapper_emit_ir=1
+    ;;
+  *)
+    typeart_wrapper_emit_ir=0
+    ;;
+  esac
+}
+
+function typeart_is_wrapper_disabled_fn() {
+  case "${TYPEART_WRAPPER}" in
+  off | OFF | 0 | false | FALSE)
+    return 1
+    ;;
+  esac
+  case "${CUSAN_WRAPPER}" in
+  off | OFF | 0 | false | FALSE)
+    return 1
+    ;;
+  esac
+  return 0
+}
+
+function cusan_global_init_fn() {
+    local -r typeart_use_rel_path=@TYPEART_RELOCATABLE@
+    if [ "$typeart_use_rel_path" == 0 ]; then
+      local -r cusan_bin_dir="@CUSAN_BINARY_DIR@"
+      local -r cusan_lib_dir="@CUSAN_RT_DIR@"
+      local -r cusan_include_dir="@CUSAN_INCLUDE_DIRS@"
+      local -r cusan_pass="@CUSAN_PASS_DIR@/$<TARGET_FILE_NAME:cusan::TransformPass>"
+    else
+      # shellcheck disable=SC2155
+      local -r cusan_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      # shellcheck disable=SC2155
+      local -r cusan_install_dir="$(dirname "${cusan_bin_dir}")"
+      local -r cusan_lib_dir="${cusan_install_dir}/@CMAKE_INSTALL_LIBDIR@"
+      local -r cusan_include_dir="-I${cusan_install_dir}/@CMAKE_INSTALL_INCLUDEDIR@/@PROJECT_NAME@"
+      local -r cusan_pass="${cusan_lib_dir}/$<TARGET_FILE_NAME:cusan::TransformPass>"
+    fi
+
+  readonly cusan_ldflags="-L${cusan_lib_dir}/ \
+                   -Wl,-rpath,${cusan_lib_dir}/ \
+                   -l$<TARGET_FILE_BASE_NAME:cusan::Runtime>"
+
+  readonly cusan_includes="${cusan_include_dir}"
+  readonly cusan_plugin="-load "${cusan_pass}" -cusan"
+  readonly cusan_cpu_mode=""
+  if [ ${typeart_wrapper_emit_ir} == 1 ]; then
+    readonly cusan_gpu_mode=""
+  else
+    readonly cusan_gpu_mode="" #"--cusan-quiet"
+  fi
+}
+
+function typeart_global_init_fn() {
+  local -r typeart_use_rel_path=@TYPEART_RELOCATABLE@
+  if [ "$typeart_use_rel_path" == 0 ]; then
+    local -r typeart_bin_dir="@TYPEART_BINARY_DIR@"
+    local -r typeart_lib_dir="@TYPEART_RT_DIR@"
+    local -r typeart_include_dir="@TYPEART_INCLUDE_DIRS@"
+    local -r typeart_pass="@TYPEART_PASS_DIR@/$<TARGET_FILE_NAME:typeart::TransformPass>"
+  else
+    # shellcheck disable=SC2155
+    local -r typeart_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck disable=SC2155
+    local -r typeart_install_dir="$(dirname "${typeart_bin_dir}")"
+    local -r typeart_lib_dir="${typeart_install_dir}/@CMAKE_INSTALL_LIBDIR@"
+    local -r typeart_include_dir="-I${typeart_install_dir}/@CMAKE_INSTALL_INCLUDEDIR@/@PROJECT_NAME@"
+    local -r typeart_pass="${typeart_lib_dir}/$<TARGET_FILE_NAME:typeart::TransformPass>"
+  fi
+
+  readonly typeart_compiler="@TYPEART_COMPILER@"
+  readonly typeart_opt_tool="@TYPEART_OPT@"
+  readonly typeart_llc_tool="@TYPEART_LLC@"
+
+  readonly typeart_includes="${typeart_include_dir}"
+  # shellcheck disable=SC2089
+  readonly typeart_ldflags="-L${typeart_lib_dir}/ \
+                   -Wl,-rpath,${typeart_lib_dir}/ \
+                   -l$<TARGET_FILE_BASE_NAME:typeart::Runtime>"
+  readonly typeart_san_flags="@TYPEART_SAN_FLAGS@"
+
+  # shellcheck disable=SC2027
+  readonly typeart_plugin="-load "${typeart_pass}" -typeart"
+  readonly typeart_stack_mode_args="--typeart-heap=false --typeart-stack --typeart-stats @TYPEART_CALLFILTER@"
+  readonly typeart_heap_mode_args="--typeart-heap=true --typeart-stats"
+
+  # Used for values passed to wrapper:
+  typeart_cmdline_args_heap=""
+  typeart_cmdline_args_stack=""
+  typeart_global_env_var_init_fn
+
+  readonly typeart_to_llvm_flags="-O0 -Xclang -disable-O0-optnone -g -c -emit-llvm"
+  typeart_to_llvm_more_flags=""
+  if [ ${typeart_wrapper_emit_ir} == 1 ]; then
+    typeart_to_llvm_more_flags="-fno-discard-value-names"
+  fi
+}
+
+function typeart_global_cuda_init_fn() {
+  # TODO: use generator expr. w.r.t. CUDA::cudart
+  readonly typeart_cuda_ldflags="-L@CUDAToolkit_LIBRARY_DIR@/ -lcudart -lcudart_static -lcudadevrt"
+}
+
+function typeart_is_typeart_linking_fn() {
+  local arg=""
+  for arg in "$@"; do
+    case "$arg" in
+    -c | -S | -E | -emit-llvm)
+      return 0
+    ;;
+    esac
+  done
+  return 1
+}
+
+function typeart_has_source_fn() {
+  local arg=""
+  for arg in "$@"; do
+    local extension_of_arg="${arg##*.}"
+    case "$extension_of_arg" in
+    cpp | cxx | cc | c | cu)
+      return 1
+    ;;
+    esac
+  done
+  return 0
+}
+
+function typeart_skip_fn() {
+  # -E inline header; -M list (all) headers; -MM list file deps
+  local arg=""
+  for arg in "$@"; do
+    case "$arg" in
+    -E | -M | -MM)
+      return 1
+    ;;
+    esac
+  done
+  return 0
+}
+
+function typeart_try_extract_source_fn() {
+  # $1 == flag (source file); $2 == shift value
+  local -r extension="${1##*.}"
+  local -r shift_val="$2"
+
+  case "$extension" in
+  cpp | cxx | cc | c | cu)
+    typeart_source_file="$1"
+    typeart_found_src_file=1
+    return "$shift_val"
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+function typeart_handle_source_flag_fn() {
+  if [ -n "$2" ]; then
+    typeart_try_extract_source_fn "$2" 2
+  else
+    typeart_try_extract_source_fn "$1" 1
+  fi
+  return $?
+}
+
+function typeart_try_extract_object_fn() {
+  # $1 == flag (obj file); $2 == shift value
+  local -r extension="${1##*.}"
+  local -r shift_val="$2"
+
+  case "$extension" in
+  o)
+    typeart_object_file="$1"
+    typeart_found_obj_file=1
+    return "$shift_val"
+    ;;
+  -)
+    typeart_to_stdout=1
+    return "$shift_val"
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+function typeart_handle_object_flag_fn() {
+  if [ -n "$2" ]; then
+    typeart_try_extract_object_fn "$2" 2
+  else
+    typeart_try_extract_object_fn "$1" 1
+  fi
+  return $?
+}
+
+function typeart_handle_binary_fn() {
+  if [ -n "$2" ]; then
+    typeart_exe_file="$2"
+    typeart_found_exe_file=1
+  fi
+  return 2
+}
+
+function typeart_parse_typeart_cmd_line_fn() {
+  typeart_other_args=""
+
+  while (("$#")); do
+    case "$1" in
+    --typeart-config=*)
+      typeart_cmdline_args_heap="${1##-typeart-config=}"
+      typeart_cmdline_args_stack="${1##-typeart-config=}"
+      shift
+      ;;
+    --typeart-heap-config=*)
+      typeart_cmdline_args_heap="${1##-typeart-heap-config=}"
+      shift
+      ;;
+    --typeart-stack-config=*)
+      typeart_cmdline_args_stack="${1##-typeart-stack-config=}"
+      shift
+      ;;
+    *) # preserve other arguments
+      typeart_other_args+=" $1"
+      shift
+      ;;
+    esac
+  done
+}
+
+function typeart_parse_cuda_cmd_line_fn() {
+  typeart_non_cuda_args=""
+  typeart_found_cuda=0
+  typeart_cuda_code_arch=""
+  typeart_cuda_compute_arch=""
+
+  while (("$#")); do
+    case "$1" in
+    *.cu)
+      typeart_found_cuda=1
+      typeart_non_cuda_args="$typeart_non_cuda_args $1"
+      shift 1
+      ;;
+    -x)
+      if [ "$2" == "cuda" ]; then
+        typeart_found_cuda=1
+      else
+        typeart_non_cuda_args="$typeart_non_cuda_args $1 $2"
+      fi
+      shift 2
+      ;;
+    --cuda-gpu-arch=*)
+      typeart_cuda_code_arch="${1##--cuda-gpu-arch=}"
+      typeart_cuda_compute_arch="compute${typeart_cuda_code_arch##sm}"
+      shift 1
+      ;;
+    -code=*)
+      typeart_cuda_code_arch="${1##-code=}"
+      shift 1
+      ;;
+    -arch=*)
+      typeart_cuda_compute_arch="${1##-arch=}"
+      shift 1
+      ;;
+    -gencode)
+      shift 1
+      ;;
+    arch=*)
+      typeart_cuda_compute_arch="${1%%,code=*}"
+      typeart_cuda_compute_arch="${typeart_cuda_compute_arch##arch=}"
+      typeart_cuda_code_arch="${1##*code=}"
+      shift 1
+      ;;
+    *) # preserve other arguments
+      typeart_non_cuda_args="$typeart_non_cuda_args $1"
+      shift
+      ;;
+    esac
+  done
+  # set other positional arguments in their proper place
+  set -- "typeart_non_cuda_args"
+}
+
+# shellcheck disable=SC2034
+function typeart_parse_cmd_line_fn() {
+  typeart_found_src_file=0
+  typeart_found_obj_file=0
+  typeart_found_exe_file=0
+  typeart_found_fpic=0
+  typeart_skip=0
+  typeart_to_asm=0
+  typeart_exe_file=""
+  typeart_source_file=""
+  typeart_object_file=""
+  typeart_asm_file=""
+  typeart_wrapper_more_args=""
+  typeart_optimize=""
+  typeart_emit_llvm=0
+  typeart_to_stdout=0
+
+  while (("$#")); do
+    case "$1" in
+    -O?)
+      typeart_optimize=$1
+      shift 1
+      ;;
+    -MT)
+      if [ -n "$2" ]; then
+        typeart_wrapper_more_args+=" $1 $2"
+        shift 2
+      else
+        typeart_wrapper_more_args+=" $1"
+        shift 1
+      fi
+      ;;
+    -S)
+      typeart_to_asm=1
+      shift 1
+      ;;
+    -c)
+      shift 1
+      ;;
+    *.s | *.bc | *.ll)
+      typeart_asm_file="$1"
+      shift 1
+      ;;
+    *.cpp | *.cxx | *.cc | *.c | *.cu)
+      typeart_handle_source_flag_fn "$1"
+      shift $?
+      ;;
+    -o)
+      # shellcheck disable=SC2154
+      if [ "$typeart_linking" == 1 ]; then
+        typeart_handle_binary_fn "$1" "$2"
+      else
+        typeart_handle_object_flag_fn "$1" "$2"
+      fi
+      shift $?
+      ;;
+    *.o)
+      if [ "$typeart_linking" == 0 ]; then
+        typeart_handle_object_flag_fn "$1"
+        shift $?
+      else
+        # when typeart_linking, we don't care about object files
+        typeart_wrapper_more_args+=" $1"
+        shift 1
+      fi
+      ;;
+    -fPIC)
+      # llc requires special flag
+      typeart_found_fpic=1
+      typeart_wrapper_more_args+=" $1"
+      shift 1
+      ;;
+    -emit-llvm)
+      typeart_emit_llvm=1
+      shift 1
+      ;;
+    *) # preserve other arguments
+      typeart_wrapper_more_args+=" $1"
+      shift 1
+      ;;
+    esac
+  done
+
+  if [ -z "${typeart_optimize}" ]; then
+    typeart_optimize=-O0
+  fi
+}
+
+function typeart_parse_commands_fn() {
+  typeart_parse_typeart_cmd_line_fn "$@"
+  typeart_parse_cuda_cmd_line_fn ${typeart_other_args}
+  typeart_parse_cmd_line_fn ${typeart_non_cuda_args}
+}
+
+function typeart_parse_link_objects_fn() {
+  typeart_link_more_args=""
+  typeart_link_objs=""
+  typeart_cuda_link_objs=""
+
+  while (("$#")); do
+    case "$1" in
+      *.o)
+      typeart_link_objs="${typeart_link_objs} $1"
+      local object_dlink="${1%.*}_dlink.o"
+      if [ -f "${object_dlink}" ]; then
+        typeart_cuda_link_objs="${typeart_cuda_link_objs} ${object_dlink}"
+      fi
+      shift
+      ;;
+      *)
+      typeart_link_more_args+=" $1"
+      shift
+      ;;
+    esac
+  done
+
+}
+
+function typeart_main_link_fn() {
+  typeart_parse_link_objects_fn "$@"
+  if [ "$typeart_found_cuda" == 1 ]; then
+    typeart_link_objs="${typeart_link_objs} ${typeart_cuda_link_objs}"
+  fi
+  # shellcheck disable=SC2086 disable=SC2068
+  $typeart_compiler ${cusan_includes} ${typeart_includes} ${typeart_ldflags} ${cusan_ldflags} ${typeart_cuda_ldflags} ${typeart_san_flags} ${typeart_link_more_args} ${typeart_link_objs}
+}
+
+# shellcheck disable=SC2068
+function typeart_redirect_fn() {
+  # First argument of $@ must be "redirect file name"
+  # Rest are the std arguments for opt
+  if [ -z ${typeart_wrapper_emit_ir} ] || [ ${typeart_wrapper_emit_ir} -eq 0 ]; then
+    $typeart_command_exe ${@:2}
+  else
+    $typeart_command_exe -S ${@:2} | tee "${@:1:1}"
+  fi
+}
+
+function typeart_opt_fn() {
+  local typeart_command_exe="$typeart_opt_tool"
+  typeart_redirect_fn "$@"
+}
+
+function typeart_compiler_fn() {
+  local typeart_command_exe="$typeart_compiler"
+  typeart_redirect_fn "$@"
+}
+
+# shellcheck disable=SC2120
+function typeart_tu_out_fn() {
+  local out_file="${typeart_object_file}"
+  local llc_flags="--filetype=obj"
+
+  if [ "$typeart_to_asm" == 1 ]; then
+    local llc_flags="--filetype=asm"
+  fi
+
+  if [ -z "${typeart_asm_file}" ]; then
+    if [ "$typeart_emit_llvm" == 1 ] && [ "$typeart_to_asm" == 1 ]; then
+      local typeart_asm_file="${out_basename}".ll
+    elif [ "$typeart_emit_llvm" == 1 ]; then
+      local typeart_asm_file="${out_basename}".bc
+    elif [ "$typeart_to_asm" == 1 ]; then
+      local typeart_asm_file="${out_basename}".s
+    fi
+  fi
+
+  if [ "$typeart_emit_llvm" == 1 ] || [ "$typeart_to_asm" == 1 ]; then
+    local out_file="${typeart_asm_file}"
+  fi
+
+  if [ "$typeart_found_fpic" == 1 ]; then
+    local llc_flags+=" --relocation-model=pic"
+  fi
+
+  if [ "$typeart_emit_llvm" == 1 ] && [ "$typeart_to_asm" == 1 ]; then
+    local typeart_command_exe="${typeart_opt_tool} -S"
+  elif [ "$typeart_emit_llvm" == 1 ]; then
+    local typeart_command_exe="${typeart_opt_tool} -f"
+  else
+    local typeart_command_exe="${typeart_llc_tool} -x=ir ${llc_flags}"
+  fi
+
+  if [ "${typeart_to_stdout}" == 0 ]; then
+    local typeart_command_exe+=" -o ${out_file}"
+  fi
+
+  $typeart_command_exe "$@"
+}
+
+# shellcheck disable=SC2086
+function typeart_compile_cuda_device_fn() {
+  $typeart_compiler ${typeart_wrapper_more_args} -gdwarf-4 ${typeart_includes} ${typeart_to_llvm_flags} \
+    -fPIC -x cuda "${typeart_source_file}" --cuda-device-only --cuda-gpu-arch=${typeart_cuda_code_arch} -o - |
+    typeart_opt_fn "${out_basename}"_cusan_gpu_mem2reg.ll -mem2reg |
+    typeart_opt_fn "${out_basename}"_cusan_gpu.ll ${cusan_plugin} ${cusan_gpu_mode} |
+    typeart_opt_fn "${out_basename}"_cusan_gpu_opt.ll ${typeart_optimize} |
+    $typeart_llc_tool -dwarf-directory=0 -x=ir --relocation-model=pic -march=nvptx64 -mcpu=${typeart_cuda_code_arch} -mattr=+ptx64 \
+    -o "${out_basename}".ptx
+
+  ptxas -m64 --gpu-name=${typeart_cuda_code_arch} "${out_basename}".ptx -o "${out_basename}".ptx.o
+
+  fatbinary --64 --create "${out_basename}".fatbin --image=profile=${typeart_cuda_code_arch},file="${out_basename}".ptx.o \
+    --image=profile=${typeart_cuda_compute_arch},file="${out_basename}".ptx -link
+
+  #nvcc -gencode arch=${typeart_cuda_compute_arch},code=${typeart_cuda_code_arch} ${typeart_cuda_ldflags} \
+  #  -dlink "${out_basename}".fatbin -o "${out_basename}"_dlink.o
+}
+
+function typeart_compile_host_fn() {
+  # shellcheck disable=SC2086
+  typeart_compiler_fn "${out_basename}"_base.ll -gdwarf-4 ${typeart_wrapper_more_args} ${typeart_includes} ${cusan_includes} ${typeart_san_flags} \
+    ${typeart_to_llvm_flags} ${typeart_to_llvm_more_flags} "${typeart_source_file}" -o - |
+    typeart_opt_fn "${out_basename}"_heap.ll ${typeart_plugin} ${typeart_heap_mode_args} ${typeart_cmdline_args_heap} |
+    typeart_opt_fn "${out_basename}"_cusan_cpu.ll ${cusan_plugin} ${cusan_cpu_mode} |
+    typeart_opt_fn "${out_basename}"_opt.ll ${typeart_optimize} |
+    typeart_opt_fn "${out_basename}"_stack.ll ${typeart_plugin} ${typeart_stack_mode_args} ${typeart_cmdline_args_stack} |
+    typeart_tu_out_fn
+}
+
+function typeart_main_compile_fn() {
+  if [ "${typeart_found_exe_file}" == 0 ]; then
+    local -r out_basename="${typeart_source_file%.*}"
+  else
+    # put temp files like .ptx, .fatbin to the location of the executable
+    local -r out_base_exe="${typeart_exe_file%/*}"
+    local -r out_basename_ext="${typeart_source_file##*/}"
+    local -r out_basename=${out_base_exe}/"${out_basename_ext%.*}"
+  fi
+  if [ -z "${typeart_object_file}" ]; then
+    # if no object file is specified, use filename(typeart_source_file).o
+    typeart_object_file="${out_basename}".o
+  fi
+
+  local -r cusan_is_installed=@TYPEART_RELOCATABLE@
+  if [ $cusan_is_installed == 0 ];then
+    export CUSAN_KERNEL_DATA_FILE="${out_basename}".yaml
+  fi
+
+  if [ "$typeart_found_cuda" == 1 ]; then
+    typeart_compile_cuda_device_fn
+    typeart_to_llvm_more_flags="$typeart_to_llvm_more_flags -fPIC -x cuda --cuda-host-only -Xclang -fcuda-include-gpubinary -Xclang ${out_basename}.fatbin"
+  fi
+
+  typeart_compile_host_fn
+}
+
+function typeart_main_driver_fn() {
+  typeart_global_init_fn
+  cusan_global_init_fn
+  typeart_global_cuda_init_fn
+
+  typeart_is_wrapper_disabled_fn
+  readonly typeart_disabled=$?
+  typeart_skip_fn "$@"
+  if [ "$?" == 1 ] || [ "$typeart_disabled" == 1 ]; then
+    # shellcheck disable=SC2068
+    $typeart_compiler $@
+    return 0
+  fi
+
+  typeart_is_typeart_linking_fn "$@"
+  local -r typeart_linking=$?
+  typeart_has_source_fn "$@"
+  local -r with_source=$?
+
+  if [ "$typeart_linking" == 1 ] && [ "$with_source" == 1 ]; then
+    typeart_parse_commands_fn "$@"
+    typeart_main_compile_fn "$@"
+    if [ "$typeart_found_exe_file" == 1 ]; then
+      typeart_wrapper_more_args+=" -o ${typeart_exe_file}"
+    fi
+    typeart_main_link_fn "$typeart_wrapper_more_args" "${typeart_object_file}"
+    if [ -f "${typeart_object_file}" ]; then
+      rm "${typeart_object_file}"
+    fi
+  elif [ "$typeart_linking" == 1 ]; then
+    typeart_main_link_fn "$@"
+  else
+    typeart_parse_commands_fn "$@"
+    typeart_main_compile_fn "$@"
+  fi
+}
+
+typeart_main_driver_fn "$@"
